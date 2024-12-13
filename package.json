@@ -4,5 +4,13 @@
     "@mantine/core": "^6.0.21",
     "@mantine/hooks": "^6.0.21",
     "@supabase/supabase-js": "^2.47.6"
+  },
+  "scripts": {
+    "dev": "next dev",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "vite": "^6.0.3"
   }
 }
