@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { supabase } from '../lib/supabase.ts';
 import useStore from '../store/useStore.ts';
-import { Session } from '@supabase/supabase-js';
+import { Session, AuthChangeEvent } from '@supabase/supabase-js';
 
 interface AuthProviderProps {
   children: React.ReactNode;
@@ -12,13 +12,18 @@ const AuthProvider = ({ children }: AuthProviderProps) => {
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event: any, session: Session | null) => {
+      async (event: AuthChangeEvent, session: Session | null) => {
         if (session?.user) {
-          const { data: profile } = await supabase
+          const { data: profile, error: profileError } = await supabase
             .from('profiles')
-            .select('*')
+            .select()
             .eq('id', session.user.id)
             .single();
+
+          if (profileError) {
+            console.error('Profile fetch error:', profileError);
+            return;
+          }
 
           if (profile) {
             setUser(profile);

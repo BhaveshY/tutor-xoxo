@@ -13,7 +13,8 @@ import {
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { notifications } from '@mantine/notifications';
-import useStore from '../store/useStore';
+import useStore from '../store/useStore.ts';
+import React from 'react';
 
 const Login = () => {
   const navigate = useNavigate();
@@ -56,7 +57,7 @@ const Login = () => {
   return (
     <Container size="xs" mt="xl">
       <Paper radius="md" p="xl" withBorder pos="relative">
-        <LoadingOverlay visible={isLoading} overlayBlur={2} />
+        <LoadingOverlay visible={isLoading} />
         <Title order={2} ta="center" mb="md">
           {isLogin ? 'Welcome back!' : 'Create account'}
         </Title>

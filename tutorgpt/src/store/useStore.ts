@@ -20,6 +20,7 @@ interface AppState {
   currentMode: 'tutor' | 'roadmap' | 'practice';
   learningProgress: LearningProgress[];
   isLoading: boolean;
+  emailConfirmationSent: boolean;
   setUser: (user: UserProfile | null) => void;
   setCurrentMode: (mode: 'tutor' | 'roadmap' | 'practice') => void;
   updateProgress: (progress: LearningProgress) => void;
@@ -35,6 +36,7 @@ const useStore = create<AppState>((set, get) => ({
   currentMode: 'tutor',
   learningProgress: [],
   isLoading: false,
+  emailConfirmationSent: false,
   setUser: (user) => set({ user }),
   setCurrentMode: (mode) => set({ currentMode: mode }),
   setLoading: (isLoading) => set({ isLoading }),
@@ -45,6 +47,7 @@ const useStore = create<AppState>((set, get) => ({
         progress,
       ],
     })),
+
   initializeAuth: async () => {
     try {
       set({ isLoading: true });
@@ -55,10 +58,27 @@ const useStore = create<AppState>((set, get) => ({
           .from('profiles')
           .select('*')
           .eq('id', session.user.id)
-          .single();
+          .maybeSingle();
 
         if (profile) {
           set({ user: profile as UserProfile });
+        } else {
+          // If no profile exists but user is authenticated, create one
+          const newProfile = {
+            id: session.user.id,
+            email: session.user.email!,
+            name: session.user.email!.split('@')[0], // Temporary name
+            interests: [],
+            education: ''
+          };
+
+          const { error: profileError } = await supabase
+            .from('profiles')
+            .insert([newProfile]);
+
+          if (!profileError) {
+            set({ user: newProfile });
+          }
         }
       }
     } catch (error) {
@@ -67,26 +87,64 @@ const useStore = create<AppState>((set, get) => ({
       set({ isLoading: false });
     }
   },
+
   signIn: async (email: string, password: string) => {
     try {
       set({ isLoading: true });
-      const { error } = await supabase.auth.signInWithPassword({
+
+      // Step 1: Sign in
+      const { data: { session }, error: authError } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
-      if (error) throw error;
+      if (authError) {
+        if (authError.message.includes('Email not confirmed')) {
+          throw new Error('Please confirm your email before signing in');
+        }
+        throw authError;
+      }
 
-      const { data: profile, error: profileError } = await supabase
+      if (!session?.user) throw new Error('No user data');
+
+      // Step 2: Get or create profile
+      const { data: existingProfile } = await supabase
         .from('profiles')
         .select('*')
-        .eq('id', (await supabase.auth.getUser()).data.user?.id)
+        .eq('id', session.user.id)
         .single();
 
-      if (profileError) throw profileError;
-      if (profile) {
-        set({ user: profile as UserProfile });
+      if (existingProfile) {
+        set({ user: existingProfile });
+        return;
       }
+
+      // Step 3: Create profile if it doesn't exist
+      const pendingProfile = localStorage.getItem('pendingProfile');
+      const profileData = pendingProfile 
+        ? JSON.parse(pendingProfile)
+        : {
+            id: session.user.id,
+            email: session.user.email,
+            name: session.user.user_metadata.name || email.split('@')[0],
+            interests: [],
+            education: ''
+          };
+
+      const { data: newProfile, error: insertError } = await supabase
+        .from('profiles')
+        .insert([profileData])
+        .select()
+        .single();
+
+      if (insertError) {
+        console.error('Profile creation error:', insertError);
+        throw new Error('Failed to create user profile');
+      }
+
+      localStorage.removeItem('pendingProfile');
+      set({ user: newProfile });
+
     } catch (error) {
       console.error('Error signing in:', error);
       throw error instanceof Error ? error : new Error('Authentication failed');
@@ -94,46 +152,61 @@ const useStore = create<AppState>((set, get) => ({
       set({ isLoading: false });
     }
   },
+
   signUp: async (email: string, password: string, name: string) => {
     try {
       set({ isLoading: true });
-      const { error, data } = await supabase.auth.signUp({
+      
+      // Step 1: Sign up the user
+      const { data: { user }, error: authError } = await supabase.auth.signUp({
         email,
         password,
+        options: {
+          emailRedirectTo: window.location.origin,
+          data: { 
+            name,
+            profile_data: {
+              email,
+              name,
+              interests: [],
+              education: ''
+            }
+          }
+        }
       });
 
-      if (error) throw error;
+      if (authError) throw authError;
+      if (!user) throw new Error('No user data returned from sign up');
 
-      if (data.user) {
-        const newProfile: UserProfile = {
-          id: data.user.id,
-          email,
-          name,
-          interests: [],
-          education: '',
-        };
+      // Store profile data in local storage for later use
+      localStorage.setItem('pendingProfile', JSON.stringify({
+        id: user.id,
+        email,
+        name,
+        interests: [],
+        education: ''
+      }));
 
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .insert([newProfile]);
+      // Set confirmation state
+      set({ 
+        emailConfirmationSent: true,
+        user: null // Keep user null until email is confirmed
+      });
 
-        if (profileError) throw profileError;
-
-        set({ user: newProfile });
-      }
     } catch (error) {
-      console.error('Error signing up:', error);
-      throw error;
+      console.error('Sign up error:', error);
+      throw error instanceof Error ? error : new Error('Sign up failed');
     } finally {
       set({ isLoading: false });
     }
   },
+
   signOut: async () => {
     try {
       set({ isLoading: true });
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
-      set({ user: null });
+      set({ user: null, emailConfirmationSent: false });
     } catch (error) {
       console.error('Error signing out:', error);
       throw error;
