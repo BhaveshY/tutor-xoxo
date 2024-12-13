@@ -20,6 +20,19 @@ const theme = createTheme({
 });
 
 function App() {
+  return (
+    <MantineProvider theme={theme} defaultColorScheme="light">
+      <Router>
+        <Notifications />
+        <AuthProvider>
+          <AppRoutes />
+        </AuthProvider>
+      </Router>
+    </MantineProvider>
+  );
+}
+
+function AppRoutes() {
   const { isLoading, initializeAuth } = useStore();
 
   useEffect(() => {
@@ -27,28 +40,18 @@ function App() {
   }, [initializeAuth]);
 
   if (isLoading) {
-    return (
-      <MantineProvider theme={theme}>
-        <LoadingScreen />
-      </MantineProvider>
-    );
+    return <LoadingScreen />;
   }
 
   return (
-    <MantineProvider theme={theme} defaultColorScheme="light">
-      <Notifications />
-      <AuthProvider>
-        <Router>
-          <Routes>
-            <Route path="/login" element={<Login />} />
-            <Route path="/" element={<PrivateRoute><Layout /></PrivateRoute>}>
-              <Route index element={<Dashboard />} />
-              <Route path="profile" element={<Profile />} />
-            </Route>
-          </Routes>
-        </Router>
-      </AuthProvider>
-    </MantineProvider>
+    <Routes>
+      <Route path="/login" element={<Login />} />
+      <Route element={<PrivateRoute><Layout /></PrivateRoute>}>
+        <Route path="/" element={<Dashboard />} />
+        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/profile" element={<Profile />} />
+      </Route>
+    </Routes>
   );
 }
 

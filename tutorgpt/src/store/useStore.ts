@@ -37,7 +37,9 @@ const useStore = create<AppState>((set, get) => ({
   learningProgress: [],
   isLoading: false,
   emailConfirmationSent: false,
-  setUser: (user) => set({ user }),
+  setUser: (user) => {
+    set({ user });
+  },
   setCurrentMode: (mode) => set({ currentMode: mode }),
   setLoading: (isLoading) => set({ isLoading }),
   updateProgress: (progress) =>
@@ -54,31 +56,14 @@ const useStore = create<AppState>((set, get) => ({
       const { data: { session } } = await supabase.auth.getSession();
       
       if (session?.user) {
-        const { data: profile } = await supabase
+        const { data: existingProfile } = await supabase
           .from('profiles')
           .select('*')
           .eq('id', session.user.id)
-          .maybeSingle();
+          .single();
 
-        if (profile) {
-          set({ user: profile as UserProfile });
-        } else {
-          // If no profile exists but user is authenticated, create one
-          const newProfile = {
-            id: session.user.id,
-            email: session.user.email!,
-            name: session.user.email!.split('@')[0], // Temporary name
-            interests: [],
-            education: ''
-          };
-
-          const { error: profileError } = await supabase
-            .from('profiles')
-            .insert([newProfile]);
-
-          if (!profileError) {
-            set({ user: newProfile });
-          }
+        if (existingProfile) {
+          set({ user: existingProfile });
         }
       }
     } catch (error) {
@@ -92,7 +77,6 @@ const useStore = create<AppState>((set, get) => ({
     try {
       set({ isLoading: true });
 
-      // Step 1: Sign in
       const { data: { session }, error: authError } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -107,7 +91,6 @@ const useStore = create<AppState>((set, get) => ({
 
       if (!session?.user) throw new Error('No user data');
 
-      // Step 2: Get or create profile
       const { data: existingProfile } = await supabase
         .from('profiles')
         .select('*')
@@ -119,7 +102,6 @@ const useStore = create<AppState>((set, get) => ({
         return;
       }
 
-      // Step 3: Create profile if it doesn't exist
       const pendingProfile = localStorage.getItem('pendingProfile');
       const profileData = pendingProfile 
         ? JSON.parse(pendingProfile)
@@ -157,7 +139,6 @@ const useStore = create<AppState>((set, get) => ({
     try {
       set({ isLoading: true });
       
-      // Step 1: Sign up the user
       const { data: { user }, error: authError } = await supabase.auth.signUp({
         email,
         password,
@@ -178,7 +159,6 @@ const useStore = create<AppState>((set, get) => ({
       if (authError) throw authError;
       if (!user) throw new Error('No user data returned from sign up');
 
-      // Store profile data in local storage for later use
       localStorage.setItem('pendingProfile', JSON.stringify({
         id: user.id,
         email,
@@ -187,10 +167,9 @@ const useStore = create<AppState>((set, get) => ({
         education: ''
       }));
 
-      // Set confirmation state
       set({ 
         emailConfirmationSent: true,
-        user: null // Keep user null until email is confirmed
+        user: null
       });
 
     } catch (error) {

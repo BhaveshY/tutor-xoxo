@@ -1,50 +1,46 @@
+
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
-  Container,
-  Paper,
   TextInput,
   PasswordInput,
   Button,
+  Container,
   Title,
   Text,
   Stack,
-  LoadingOverlay,
-  Anchor,
 } from '@mantine/core';
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { notifications } from '@mantine/notifications';
 import useStore from '../store/useStore.ts';
-import React from 'react';
 
-const Login = () => {
+function Login() {
   const navigate = useNavigate();
-  const { signIn, signUp, isLoading } = useStore();
-  const [isLogin, setIsLogin] = useState(true);
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    password: '',
-  });
+  const { signIn, signUp, user, emailConfirmationSent } = useStore();
+  const [isSignUp, setIsSignUp] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
+
+  useEffect(() => {
+    if (user) {
+      navigate('/dashboard');
+    }
+  }, [user, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      if (isLogin) {
-        await signIn(formData.email, formData.password);
+      if (isSignUp) {
+        await signUp(email, password, name);
         notifications.show({
           title: 'Success',
-          message: 'Successfully logged in',
+          message: 'Please check your email to confirm your account',
           color: 'green',
         });
       } else {
-        await signUp(formData.email, formData.password, formData.name);
-        notifications.show({
-          title: 'Success',
-          message: 'Account created successfully',
-          color: 'green',
-        });
+        await signIn(email, password);
+        navigate('/dashboard');
       }
-      navigate('/');
     } catch (error) {
       notifications.show({
         title: 'Error',
@@ -54,63 +50,55 @@ const Login = () => {
     }
   };
 
+  if (emailConfirmationSent) {
+    return (
+      <Container size="xs" mt="xl">
+        <Title order={2} mb="md">Check Your Email</Title>
+        <Text>
+          We've sent you a confirmation email. Please check your inbox and follow the link to confirm your account.
+        </Text>
+      </Container>
+    );
+  }
+
   return (
     <Container size="xs" mt="xl">
-      <Paper radius="md" p="xl" withBorder pos="relative">
-        <LoadingOverlay visible={isLoading} />
-        <Title order={2} ta="center" mb="md">
-          {isLogin ? 'Welcome back!' : 'Create account'}
-        </Title>
-
-        <form onSubmit={handleSubmit}>
-          <Stack gap="md">
-            {!isLogin && (
-              <TextInput
-                required
-                label="Name"
-                placeholder="Your name"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              />
-            )}
-
+      <Title order={2} mb="md">{isSignUp ? 'Create Account' : 'Welcome Back'}</Title>
+      <form onSubmit={handleSubmit}>
+        <Stack>
+          {isSignUp && (
             <TextInput
+              label="Name"
+              placeholder="Your name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
               required
-              label="Email"
-              type="email"
-              placeholder="hello@example.com"
-              value={formData.email}
-              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
             />
-
-            <PasswordInput
-              required
-              label="Password"
-              placeholder="Your password"
-              value={formData.password}
-              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-            />
-
-            <Button type="submit" fullWidth mt="xl" loading={isLoading}>
-              {isLogin ? 'Sign in' : 'Create account'}
-            </Button>
-
-            <Text ta="center" size="sm">
-              {isLogin ? "Don't have an account? " : 'Already have an account? '}
-              <Anchor
-                component="button"
-                type="button"
-                onClick={() => setIsLogin(!isLogin)}
-                size="sm"
-              >
-                {isLogin ? 'Create one' : 'Login'}
-              </Anchor>
-            </Text>
-          </Stack>
-        </form>
-      </Paper>
+          )}
+          <TextInput
+            label="Email"
+            placeholder="your@email.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
+          <PasswordInput
+            label="Password"
+            placeholder="Your password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+          />
+          <Button type="submit" fullWidth>
+            {isSignUp ? 'Sign Up' : 'Sign In'}
+          </Button>
+          <Button variant="subtle" onClick={() => setIsSignUp(!isSignUp)}>
+            {isSignUp ? 'Already have an account? Sign in' : "Don't have an account? Sign up"}
+          </Button>
+        </Stack>
+      </form>
     </Container>
   );
-};
+}
 
 export default Login; 
