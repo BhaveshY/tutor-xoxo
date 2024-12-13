@@ -1,0 +1,40 @@
+body {
+  margin: 0;
+  padding: 0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.mantine-AppShell-main {
+  background-color: #f8f9fa;
+  min-height: 100vh;
+}
+
+.mantine-Button-root {
+  transition: all 0.2s ease;
+}
+
+.mantine-Button-root:hover {
+  transform: translateY(-1px);
+}
+
+.mantine-Paper-root {
+  transition: all 0.2s ease;
+}
+
+.mantine-Paper-root:hover {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.mantine-TextInput-input,
+.mantine-PasswordInput-input,
+.mantine-Textarea-input {
+  transition: all 0.2s ease;
+}
+
+.mantine-TextInput-input:focus,
+.mantine-PasswordInput-input:focus,
+.mantine-Textarea-input:focus {
+  border-color: #228be6;
+  box-shadow: 0 0 0 2px rgba(34, 139, 230, 0.1);
+} 
