@@ -429,9 +429,19 @@ const Dashboard = () => {
     <Stack gap="lg">
       <Group justify="space-between" align="center">
         <Title order={2}>Learning Roadmap Generator</Title>
-        <Badge size="lg" variant="light">
-          {roadmaps.length} Saved Roadmaps
-        </Badge>
+        <Group>
+          <Select
+            placeholder="Select subject"
+            data={subjects}
+            value={selectedSubject}
+            onChange={setSelectedSubject}
+            clearable
+            style={{ width: 200 }}
+          />
+          <Badge size="lg" variant="light">
+            {roadmaps.length} Saved Roadmaps
+          </Badge>
+        </Group>
       </Group>
 
       <Group grow align="flex-start">
@@ -442,8 +452,10 @@ const Dashboard = () => {
               <Textarea
                 value={userInput}
                 onChange={(e) => setUserInput(e.currentTarget.value)}
-                placeholder="What do you want to learn? Be specific about your goals and current level..."
+                placeholder="What do you want to learn? Be specific about your goals, current level, and time commitment..."
                 minRows={4}
+                autosize
+                maxRows={8}
                 disabled={isLoading}
               />
               <Group justify="flex-end">
@@ -451,6 +463,8 @@ const Dashboard = () => {
                   leftSection={<IconMap size={20} />}
                   onClick={handleRoadmapSubmit}
                   loading={isLoading}
+                  variant="gradient"
+                  gradient={{ from: 'blue', to: 'cyan' }}
                 >
                   Generate Roadmap
                 </Button>
@@ -459,15 +473,58 @@ const Dashboard = () => {
           </Paper>
 
           {selectedRoadmap && (
-            <Paper p="md" withBorder>
+            <Paper p="md" withBorder shadow="sm">
               <Stack gap="md">
-                <Group justify="space-between">
-                  <Text fw={500}>{selectedRoadmap.title}</Text>
-                  <Text size="sm" c="dimmed">
-                    {selectedRoadmap.timestamp.toLocaleDateString()}
-                  </Text>
+                <Group justify="apart">
+                  <Stack gap={0}>
+                    <Text size="lg" fw={600}>{selectedRoadmap.title}</Text>
+                    <Text size="sm" c="dimmed">
+                      Created on {selectedRoadmap.timestamp.toLocaleDateString()}
+                    </Text>
+                  </Stack>
+                  <Group>
+                    <Button 
+                      variant="light" 
+                      color="red" 
+                      size="sm"
+                      onClick={() => {
+                        setRoadmaps(prev => prev.filter(r => r.id !== selectedRoadmap.id));
+                        setSelectedRoadmap(null);
+                        notifications.show({
+                          title: 'Success',
+                          message: 'Roadmap deleted successfully',
+                          color: 'green',
+                        });
+                      }}
+                    >
+                      Delete
+                    </Button>
+                    <Button 
+                      variant="light" 
+                      size="sm"
+                      onClick={() => {
+                        const content = `# ${selectedRoadmap.title}\n\n${selectedRoadmap.content}`;
+                        const blob = new Blob([content], { type: 'text/markdown' });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `roadmap-${selectedRoadmap.title.toLowerCase().replace(/\s+/g, '-')}.md`;
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        URL.revokeObjectURL(url);
+                        notifications.show({
+                          title: 'Success',
+                          message: 'Roadmap downloaded successfully',
+                          color: 'green',
+                        });
+                      }}
+                    >
+                      Download
+                    </Button>
+                  </Group>
                 </Group>
-                <Box className="markdown-content">
+                <Box className="markdown-content" style={{ maxHeight: 'calc(100vh - 400px)', overflowY: 'auto' }}>
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>
                     {selectedRoadmap.content}
                   </ReactMarkdown>
@@ -486,26 +543,44 @@ const Dashboard = () => {
               </Group>
               <Divider />
               {roadmaps.length === 0 ? (
-                <Text c="dimmed" ta="center" py="xl">
-                  No saved roadmaps yet
-                </Text>
+                <Stack align="center" gap="xs" py="xl">
+                  <IconMap size={40} stroke={1.5} color="gray" />
+                  <Text c="dimmed" ta="center">
+                    No saved roadmaps yet
+                  </Text>
+                  <Text size="sm" c="dimmed" ta="center">
+                    Generate your first learning roadmap to get started
+                  </Text>
+                </Stack>
               ) : (
-                roadmaps.map((roadmap) => (
-                  <Paper
-                    key={roadmap.id}
-                    p="xs"
-                    withBorder
-                    style={{ cursor: 'pointer' }}
-                    onClick={() => setSelectedRoadmap(roadmap)}
-                  >
-                    <Text size="sm" lineClamp={2}>
-                      {roadmap.title}
-                    </Text>
-                    <Text size="xs" c="dimmed" mt={4}>
-                      {roadmap.timestamp.toLocaleDateString()}
-                    </Text>
-                  </Paper>
-                ))
+                <Stack gap="sm">
+                  {roadmaps.map((roadmap) => (
+                    <Paper
+                      key={roadmap.id}
+                      p="sm"
+                      withBorder
+                      style={{ 
+                        cursor: 'pointer',
+                        backgroundColor: selectedRoadmap?.id === roadmap.id ? 'var(--mantine-color-blue-light)' : undefined
+                      }}
+                      onClick={() => setSelectedRoadmap(roadmap)}
+                    >
+                      <Stack gap="xs">
+                        <Text size="sm" fw={500} lineClamp={2}>
+                          {roadmap.title}
+                        </Text>
+                        <Group justify="apart">
+                          <Text size="xs" c="dimmed">
+                            {roadmap.timestamp.toLocaleDateString()}
+                          </Text>
+                          <Badge size="sm" variant="light">
+                            {roadmap.content.split('\n').filter(line => line.trim().startsWith('- ')).length} steps
+                          </Badge>
+                        </Group>
+                      </Stack>
+                    </Paper>
+                  ))}
+                </Stack>
               )}
             </Stack>
           </Paper>
