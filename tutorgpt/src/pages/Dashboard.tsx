@@ -61,13 +61,7 @@ interface PracticeQuestion {
     D: string;
   };
   correct: 'A' | 'B' | 'C' | 'D';
-  explanation: {
-    correct: string;
-    A: string;
-    B: string;
-    C: string;
-    D: string;
-  };
+  explanation: string;
   selectedAnswer?: string;
   isCorrect?: boolean;
 }
@@ -247,63 +241,110 @@ const Dashboard = () => {
 
     setIsLoading(true);
     try {
+      console.log('Submitting practice question request for:', userInput);
       const result = await llmService.generatePracticeQuestions(userInput);
-      if (result.error) throw new Error(result.error);
+      
+      if (result.error) {
+        console.error('API Error:', result.error);
+        throw new Error(result.error);
+      }
 
-      // Parse the markdown response into structured questions
-      const questions = result.content
-        .split('\n\n')
-        .filter(q => q.trim().startsWith('Q'))
-        .map(q => {
-          try {
-            const lines = q.split('\n').filter(line => line.trim());
-            if (lines.length < 6) return null; // Skip malformed questions
+      console.log('Received response:', result.content);
 
-            const question = lines[0].replace(/^Q\d+:\s*/, '').trim();
-            const options = {
+      // Parse the questions with support for both formats
+      const rawQuestions = result.content.split('\n\n').filter(q => q.trim().startsWith('Q'));
+      console.log(`Found ${rawQuestions.length} raw questions`);
+
+      const questions = rawQuestions.map((q, index) => {
+        try {
+          const lines = q.split('\n').filter(line => line.trim());
+          console.log(`Question ${index + 1} has ${lines.length} lines:`, lines);
+
+          const question = lines[0].replace(/^Q\d+:\s*/, '').trim();
+          
+          // Check if we're dealing with the "Answer:" format
+          const isAnswerFormat = lines.some(line => line.startsWith('Answer:'));
+          
+          let options: { A: string; B: string; C: string; D: string };
+          let correct: 'A' | 'B' | 'C' | 'D';
+          let explanation = '';
+
+          if (isAnswerFormat) {
+            // Convert Answer format to multiple choice
+            const answerLine = lines.find(line => line.startsWith('Answer:'));
+            const correctAnswer = answerLine?.replace(/^Answer:\s*/, '').trim() || '';
+            
+            const explanationLine = lines.find(line => line.startsWith('Explanation:'));
+            explanation = explanationLine?.replace(/^Explanation:\s*/, '').trim() || 'No explanation provided';
+
+            // Generate plausible wrong answers based on the correct answer
+            const wrongAnswers = generateWrongAnswers(correctAnswer, question);
+            
+            // Randomly place the correct answer
+            const optionIndex = Math.floor(Math.random() * 4);
+            const optionsArray = [...wrongAnswers];
+            optionIndex === 0 ? optionsArray.unshift(correctAnswer) : optionsArray.splice(optionIndex, 0, correctAnswer);
+            
+            options = {
+              A: optionsArray[0],
+              B: optionsArray[1],
+              C: optionsArray[2],
+              D: optionsArray[3],
+            };
+            
+            correct = ['A', 'B', 'C', 'D'][optionIndex] as 'A' | 'B' | 'C' | 'D';
+          } else {
+            // Handle standard multiple choice format
+            if (!lines[1]?.startsWith('A)') || !lines[2]?.startsWith('B)') || 
+                !lines[3]?.startsWith('C)') || !lines[4]?.startsWith('D)')) {
+              console.error(`Question ${index + 1} has invalid option format`);
+              return null;
+            }
+
+            options = {
               A: lines[1].replace(/^A\)\s*/, '').trim(),
               B: lines[2].replace(/^B\)\s*/, '').trim(),
               C: lines[3].replace(/^C\)\s*/, '').trim(),
               D: lines[4].replace(/^D\)\s*/, '').trim(),
             };
-            const correct = lines[5].replace(/^Correct:\s*/, '').trim() as 'A' | 'B' | 'C' | 'D';
-            
-            // Find the explanation JSON block
-            const explanationStart = lines.findIndex(line => line.includes('Explanation:'));
-            if (explanationStart === -1) return null;
 
-            let explanationJson = lines.slice(explanationStart + 1).join('\n');
-            // Handle both direct JSON and string that needs parsing
-            let explanation;
-            try {
-              explanation = typeof explanationJson === 'string' ? JSON.parse(explanationJson) : explanationJson;
-            } catch {
-              // Fallback explanation if JSON parsing fails
-              explanation = {
-                correct: "Explanation not available in correct format",
-                A: "Details not available",
-                B: "Details not available",
-                C: "Details not available",
-                D: "Details not available"
-              };
+            const correctLine = lines[5]?.trim() || '';
+            if (!correctLine.startsWith('Correct:')) {
+              console.error(`Question ${index + 1} has invalid correct answer format:`, correctLine);
+              return null;
             }
 
-            return {
-              id: Date.now().toString() + Math.random(),
-              question,
-              options,
-              correct,
-              explanation,
-            };
-          } catch (err) {
-            console.error('Failed to parse question:', err);
-            return null;
+            correct = correctLine.replace(/^Correct:\s*/, '').trim() as 'A' | 'B' | 'C' | 'D';
+            if (!['A', 'B', 'C', 'D'].includes(correct)) {
+              console.error(`Question ${index + 1} has invalid correct answer value:`, correct);
+              return null;
+            }
+
+            const explanationLine = lines[6]?.trim() || '';
+            explanation = explanationLine.replace(/^Explanation:\s*/, '').trim() || 'No explanation provided';
           }
-        })
-        .filter(Boolean); // Remove any null questions
+
+          const parsedQuestion = {
+            id: Date.now().toString() + Math.random(),
+            question,
+            options,
+            correct,
+            explanation,
+          };
+
+          console.log(`Successfully parsed question ${index + 1}:`, parsedQuestion);
+          return parsedQuestion;
+        } catch (err) {
+          console.error(`Error parsing question ${index + 1}:`, err);
+          console.error('Question content:', q);
+          return null;
+        }
+      }).filter(Boolean);
+
+      console.log('Final parsed questions:', questions);
 
       if (questions.length === 0) {
-        throw new Error('Failed to generate valid questions. Please try again.');
+        throw new Error('Failed to parse questions. Please try again.');
       }
 
       setPracticeQuestions(questions);
@@ -315,6 +356,7 @@ const Dashboard = () => {
         color: 'green',
       });
     } catch (error) {
+      console.error('Practice question generation error:', error);
       notifications.show({
         title: 'Error',
         message: error instanceof Error ? error.message : 'Failed to generate questions',
@@ -323,6 +365,31 @@ const Dashboard = () => {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Helper function to generate plausible wrong answers
+  const generateWrongAnswers = (correctAnswer: string, question: string): string[] => {
+    // Simple strategy: Generate variations or related but incorrect answers
+    const wrongAnswers: string[] = [];
+    
+    // For NLP-related questions
+    if (question.toLowerCase().includes('nlp')) {
+      wrongAnswers.push(
+        'Natural Language Programming',
+        'Neural Language Processing',
+        'Network Language Protocol'
+      );
+    } else {
+      // Generic wrong answers based on the correct answer
+      wrongAnswers.push(
+        `Not ${correctAnswer}`,
+        `Similar to ${correctAnswer}`,
+        `Opposite of ${correctAnswer}`
+      );
+    }
+    
+    // Return exactly 3 wrong answers
+    return wrongAnswers.slice(0, 3);
   };
 
   const handleAnswerSubmit = (questionId: string, selectedAnswer: string) => {
@@ -613,7 +680,7 @@ const Dashboard = () => {
 
                 <RadioGroup
                   value={question.selectedAnswer || ''}
-                  onChange={(value: string) => handleAnswerSubmit(question.id, value)}
+                  onChange={(value) => handleAnswerSubmit(question.id, value)}
                   disabled={question.selectedAnswer !== undefined}
                 >
                   <Stack gap="xs">
@@ -644,18 +711,9 @@ const Dashboard = () => {
                       </Text>
                       
                       <Text size="sm" fw={500}>
-                        Explanation for the correct answer ({question.correct}):
+                        Explanation:
                       </Text>
-                      <Text size="sm">{question.explanation.correct}</Text>
-
-                      {!question.isCorrect && question.selectedAnswer && (
-                        <>
-                          <Text size="sm" fw={500} mt="xs">
-                            Why your answer ({question.selectedAnswer}) was incorrect:
-                          </Text>
-                          <Text size="sm">{question.explanation[question.selectedAnswer]}</Text>
-                        </>
-                      )}
+                      <Text size="sm">{question.explanation}</Text>
                     </Stack>
                   </Paper>
                 )}
