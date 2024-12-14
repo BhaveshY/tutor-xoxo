@@ -64,6 +64,7 @@ interface PracticeQuestion {
   explanation: string;
   selectedAnswer?: string;
   isCorrect?: boolean;
+  difficulty: 'easy' | 'medium' | 'hard';
 }
 
 interface SavedRoadmap {
@@ -71,6 +72,13 @@ interface SavedRoadmap {
   title: string;
   content: string;
   timestamp: Date;
+}
+
+interface PracticeStats {
+  total: number;
+  correct: number;
+  incorrect: number;
+  streak: number;
 }
 
 const Dashboard = () => {
@@ -85,6 +93,13 @@ const Dashboard = () => {
   const [selectedRoadmap, setSelectedRoadmap] = useState<SavedRoadmap | null>(null);
   const [showExplanation, setShowExplanation] = useState<Record<string, boolean>>({});
   const chatBoxRef = useRef<HTMLDivElement>(null);
+  const [practiceStats, setPracticeStats] = useState<PracticeStats>({
+    total: 0,
+    correct: 0,
+    incorrect: 0,
+    streak: 0,
+  });
+  const [selectedDifficulty, setSelectedDifficulty] = useState<string>('medium');
 
   useEffect(() => {
     if (chatBoxRef.current) {
@@ -330,6 +345,7 @@ const Dashboard = () => {
             options,
             correct,
             explanation,
+            difficulty: 'medium',
           };
 
           console.log(`Successfully parsed question ${index + 1}:`, parsedQuestion);
@@ -367,9 +383,8 @@ const Dashboard = () => {
     }
   };
 
-  // Helper function to generate plausible wrong answers
+  // Enhanced wrong answer generation
   const generateWrongAnswers = (correctAnswer: string, question: string): string[] => {
-    // Simple strategy: Generate variations or related but incorrect answers
     const wrongAnswers: string[] = [];
     
     // For NLP-related questions
@@ -377,19 +392,65 @@ const Dashboard = () => {
       wrongAnswers.push(
         'Natural Language Programming',
         'Neural Language Processing',
-        'Network Language Protocol'
+        'Network Language Protocol',
+        'Natural Learning Process',
+        'Nested Language Protocol',
+        'Neural Learning Platform'
       );
-    } else {
-      // Generic wrong answers based on the correct answer
+    } 
+    // For programming-related questions
+    else if (question.toLowerCase().includes('programming') || 
+             question.toLowerCase().includes('code') ||
+             question.toLowerCase().includes('developer')) {
+      wrongAnswers.push(
+        'JavaScript',
+        'Python',
+        'Java',
+        'C++',
+        'Ruby',
+        'TypeScript'
+      );
+    }
+    // For definition questions
+    else if (question.toLowerCase().startsWith('what is') || 
+             question.toLowerCase().startsWith('define')) {
+      wrongAnswers.push(
+        `A different concept than ${correctAnswer}`,
+        `The opposite of ${correctAnswer}`,
+        `Similar but not the same as ${correctAnswer}`,
+        `A common misconception about ${correctAnswer}`,
+        `An outdated definition of ${correctAnswer}`,
+        `An incomplete understanding of ${correctAnswer}`
+      );
+    }
+    // For technical questions
+    else if (question.toLowerCase().includes('technical') || 
+             question.toLowerCase().includes('technology')) {
+      wrongAnswers.push(
+        'A hardware component',
+        'A software application',
+        'A network protocol',
+        'A database system',
+        'An operating system feature',
+        'A cloud service'
+      );
+    }
+    // Default case
+    else {
       wrongAnswers.push(
         `Not ${correctAnswer}`,
         `Similar to ${correctAnswer}`,
-        `Opposite of ${correctAnswer}`
+        `Opposite of ${correctAnswer}`,
+        `Alternative to ${correctAnswer}`,
+        `Variation of ${correctAnswer}`,
+        `Related but different from ${correctAnswer}`
       );
     }
     
-    // Return exactly 3 wrong answers
-    return wrongAnswers.slice(0, 3);
+    // Shuffle and return 3 wrong answers
+    return wrongAnswers
+      .sort(() => Math.random() - 0.5)
+      .slice(0, 3);
   };
 
   const handleAnswerSubmit = (questionId: string, selectedAnswer: string) => {
@@ -397,6 +458,15 @@ const Dashboard = () => {
       prev.map(q => {
         if (q.id === questionId) {
           const isCorrect = selectedAnswer === q.correct;
+          
+          // Update stats
+          setPracticeStats(stats => ({
+            total: stats.total + 1,
+            correct: stats.correct + (isCorrect ? 1 : 0),
+            incorrect: stats.incorrect + (isCorrect ? 0 : 1),
+            streak: isCorrect ? stats.streak + 1 : 0,
+          }));
+
           return {
             ...q,
             selectedAnswer,
@@ -622,15 +692,77 @@ const Dashboard = () => {
     <Stack gap="lg">
       <Group justify="space-between" align="center">
         <Title order={2}>Practice Questions</Title>
-        <Select
-          placeholder="Select subject"
-          data={subjects}
-          value={selectedSubject}
-          onChange={setSelectedSubject}
-          clearable
-          style={{ width: 200 }}
-        />
+        <Group>
+          <Select
+            placeholder="Select subject"
+            data={subjects}
+            value={selectedSubject}
+            onChange={setSelectedSubject}
+            clearable
+            style={{ width: 200 }}
+          />
+          <Select
+            placeholder="Difficulty"
+            data={[
+              { value: 'easy', label: 'Easy' },
+              { value: 'medium', label: 'Medium' },
+              { value: 'hard', label: 'Hard' },
+            ]}
+            value={selectedDifficulty}
+            onChange={(value) => setSelectedDifficulty(value || 'medium')}
+            style={{ width: 120 }}
+          />
+        </Group>
       </Group>
+
+      {/* Stats Display */}
+      {practiceStats.total > 0 && (
+        <Paper p="md" withBorder>
+          <Group position="apart">
+            <Group>
+              <ThemeIcon color="blue" size="lg" variant="light">
+                <IconBrain size={20} />
+              </ThemeIcon>
+              <div>
+                <Text size="sm" c="dimmed">Total Questions</Text>
+                <Text fw={500}>{practiceStats.total}</Text>
+              </div>
+            </Group>
+            <Group>
+              <ThemeIcon color="green" size="lg" variant="light">
+                <IconCheck size={20} />
+              </ThemeIcon>
+              <div>
+                <Text size="sm" c="dimmed">Correct</Text>
+                <Text fw={500}>{practiceStats.correct}</Text>
+              </div>
+            </Group>
+            <Group>
+              <ThemeIcon color="red" size="lg" variant="light">
+                <IconX size={20} />
+              </ThemeIcon>
+              <div>
+                <Text size="sm" c="dimmed">Incorrect</Text>
+                <Text fw={500}>{practiceStats.incorrect}</Text>
+              </div>
+            </Group>
+            <Group>
+              <ThemeIcon color="yellow" size="lg" variant="light">
+                <IconArrowRight size={20} />
+              </ThemeIcon>
+              <div>
+                <Text size="sm" c="dimmed">Current Streak</Text>
+                <Text fw={500}>{practiceStats.streak}</Text>
+              </div>
+            </Group>
+            <Text size="sm" c="dimmed">
+              Accuracy: {practiceStats.total > 0 
+                ? Math.round((practiceStats.correct / practiceStats.total) * 100)
+                : 0}%
+            </Text>
+          </Group>
+        </Paper>
+      )}
 
       <Paper p="md" withBorder>
         <Stack gap="md">
@@ -647,6 +779,8 @@ const Dashboard = () => {
               leftSection={<IconListCheck size={20} />}
               onClick={handlePracticeSubmit}
               loading={isLoading}
+              variant="gradient"
+              gradient={{ from: 'blue', to: 'cyan' }}
             >
               Generate Questions
             </Button>
@@ -657,26 +791,47 @@ const Dashboard = () => {
       {practiceQuestions.length > 0 && (
         <Stack gap="md">
           {practiceQuestions.map((question, index) => (
-            <Paper key={question.id} p="md" withBorder>
+            <Paper 
+              key={question.id} 
+              p="md" 
+              withBorder
+              shadow={question.selectedAnswer ? 'sm' : 'md'}
+              style={{
+                transition: 'all 0.3s ease',
+                transform: question.selectedAnswer ? 'scale(0.99)' : 'scale(1)',
+              }}
+            >
               <Stack gap="sm">
-                <Group>
-                  <ThemeIcon
-                    color={question.isCorrect === undefined ? 'gray' : question.isCorrect ? 'green' : 'red'}
-                    variant="light"
-                    size="lg"
+                <Group position="apart">
+                  <Group>
+                    <ThemeIcon
+                      color={question.isCorrect === undefined ? 'blue' : question.isCorrect ? 'green' : 'red'}
+                      variant="light"
+                      size="lg"
+                      style={{ transition: 'all 0.3s ease' }}
+                    >
+                      {question.isCorrect === undefined ? (
+                        <IconArrowRight size={20} />
+                      ) : question.isCorrect ? (
+                        <IconCheck size={20} />
+                      ) : (
+                        <IconX size={20} />
+                      )}
+                    </ThemeIcon>
+                    <Text fw={500}>Question {index + 1}</Text>
+                  </Group>
+                  <Badge 
+                    color={
+                      question.difficulty === 'easy' ? 'green' : 
+                      question.difficulty === 'medium' ? 'yellow' : 
+                      'red'
+                    }
                   >
-                    {question.isCorrect === undefined ? (
-                      <IconArrowRight size={20} />
-                    ) : question.isCorrect ? (
-                      <IconCheck size={20} />
-                    ) : (
-                      <IconX size={20} />
-                    )}
-                  </ThemeIcon>
-                  <Text fw={500}>Question {index + 1}</Text>
+                    {question.difficulty}
+                  </Badge>
                 </Group>
                 
-                <Text>{question.question}</Text>
+                <Text size="lg">{question.question}</Text>
 
                 <RadioGroup
                   value={question.selectedAnswer || ''}
@@ -698,16 +853,28 @@ const Dashboard = () => {
                             ? 'green'
                             : undefined
                         }
+                        styles={{
+                          radio: {
+                            transition: 'all 0.3s ease',
+                            transform: question.selectedAnswer === key ? 'scale(1.05)' : 'scale(1)',
+                          },
+                        }}
                       />
                     ))}
                   </Stack>
                 </RadioGroup>
 
                 {showExplanation[question.id] && (
-                  <Paper p="sm" bg="gray.0">
+                  <Paper 
+                    p="sm" 
+                    bg="gray.0"
+                    style={{
+                      animation: 'fadeIn 0.5s ease-in-out',
+                    }}
+                  >
                     <Stack gap="xs">
                       <Text size="sm" fw={500} c={question.isCorrect ? 'green' : 'red'}>
-                        {question.isCorrect ? 'Correct!' : 'Incorrect'}
+                        {question.isCorrect ? '✨ Correct!' : '❌ Incorrect'}
                       </Text>
                       
                       <Text size="sm" fw={500}>
