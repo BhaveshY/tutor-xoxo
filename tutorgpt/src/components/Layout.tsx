@@ -1,99 +1,73 @@
-import React from 'react';
+import React, { ReactNode } from 'react';
 import { AppShell, Burger, Group, Text, Button, Stack } from '@mantine/core';
 import { IconBook, IconRoad, IconBrain, IconLogout } from '@tabler/icons-react';
-import { Outlet, useNavigate } from 'react-router-dom';
-import { notifications } from '@mantine/notifications';
-import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import useStore from '../store/useStore.ts';
 
-const Layout = () => {
+interface LayoutProps {
+  children: ReactNode;
+}
+
+const Layout = ({ children }: LayoutProps) => {
   const { currentMode, setCurrentMode, user, signOut } = useStore();
   const navigate = useNavigate();
-  const [opened, setOpened] = useState(false);
-
-  const modes = [
-    { value: 'tutor', label: 'Tutor', icon: IconBook },
-    { value: 'roadmap', label: 'Roadmap', icon: IconRoad },
-    { value: 'practice', label: 'Practice', icon: IconBrain },
-  ];
 
   const handleSignOut = async () => {
-    try {
-      await signOut();
-      notifications.show({
-        title: 'Success',
-        message: 'Successfully signed out',
-        color: 'green',
-      });
-      navigate('/login');
-    } catch (error) {
-      notifications.show({
-        title: 'Error',
-        message: 'Failed to sign out',
-        color: 'red',
-      });
-    }
+    await signOut();
+    navigate('/login');
   };
 
   return (
     <AppShell
       header={{ height: 60 }}
-      navbar={{
-        width: 300,
-        breakpoint: 'sm',
-        collapsed: { mobile: !opened },
-      }}
+      navbar={{ width: 300, breakpoint: 'sm' }}
       padding="md"
     >
       <AppShell.Header>
         <Group h="100%" px="md" justify="space-between">
+          <Text size="lg" fw={500}>TutorGPT</Text>
           <Group>
-            <Burger
-              opened={opened}
-              onClick={() => setOpened((o) => !o)}
-              hiddenFrom="sm"
-              size="sm"
-            />
-            <Text size="lg" fw={700}>TutorGPT</Text>
+            <Text size="sm">{user?.name}</Text>
+            <Button
+              variant="subtle"
+              color="gray"
+              leftSection={<IconLogout size={20} />}
+              onClick={handleSignOut}
+            >
+              Sign Out
+            </Button>
           </Group>
-          <Text>Welcome, {user?.name}</Text>
         </Group>
       </AppShell.Header>
 
       <AppShell.Navbar p="md">
-        <Stack gap="sm">
-          {modes.map((mode) => (
-            <Button
-              key={mode.value}
-              fullWidth
-              variant={currentMode === mode.value ? 'filled' : 'light'}
-              onClick={() => setCurrentMode(mode.value as 'tutor' | 'roadmap' | 'practice')}
-              leftSection={<mode.icon size={20} />}
-            >
-              {mode.label}
-            </Button>
-          ))}
+        <Stack>
           <Button
-            fullWidth
-            variant="light"
-            onClick={() => navigate('/profile')}
+            variant={currentMode === 'tutor' ? 'filled' : 'light'}
+            leftSection={<IconBook size={20} />}
+            onClick={() => setCurrentMode('tutor')}
           >
-            Profile Settings
+            AI Tutor
           </Button>
           <Button
-            fullWidth
-            variant="light"
-            color="red"
-            onClick={handleSignOut}
-            leftSection={<IconLogout size={20} />}
+            variant={currentMode === 'roadmap' ? 'filled' : 'light'}
+            leftSection={<IconRoad size={20} />}
+            onClick={() => setCurrentMode('roadmap')}
           >
-            Sign Out
+            Learning Roadmap
+          </Button>
+          <Button
+            variant={currentMode === 'practice' ? 'filled' : 'light'}
+            leftSection={<IconBrain size={20} />}
+            onClick={() => setCurrentMode('practice')}
+          >
+            Practice Questions
           </Button>
         </Stack>
       </AppShell.Navbar>
 
       <AppShell.Main>
-        <Outlet />
+        {children}
       </AppShell.Main>
     </AppShell>
   );

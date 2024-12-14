@@ -1,25 +1,60 @@
-import React, { useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import React, { createContext, useContext, useEffect } from 'react';
+import { supabase } from '../lib/supabaseClient.ts';
 import useStore from '../store/useStore.ts';
+import { useNavigate } from 'react-router-dom';
 
-interface AuthProviderProps {
-  children: React.ReactNode;
-}
+export const AuthContext = createContext<{ isAuthenticated: boolean }>({
+  isAuthenticated: false,
+});
 
-function AuthProvider({ children }: AuthProviderProps) {
-  const { user } = useStore();
+export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const navigate = useNavigate();
-  const location = useLocation();
+  const { setState } = useStore;
 
   useEffect(() => {
-    if (!user && location.pathname !== '/login') {
-      navigate('/login');
-    } else if (user && location.pathname === '/login') {
-      navigate('/dashboard');
-    }
-  }, [user, navigate, location.pathname]);
+    // Get initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        setState({
+          user: {
+            id: session.user.id,
+            email: session.user.email ?? '',
+            name: (session.user.user_metadata?.name || session.user.email) ?? '',
+            interests: session.user.user_metadata?.interests ?? [],
+            education: session.user.user_metadata?.education ?? ''
+          }
+        });
+      }
+    });
 
-  return <>{children}</>;
-}
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (session) {
+        setState({
+          user: {
+            id: session.user.id,
+            email: session.user.email ?? '',
+            name: (session.user.user_metadata?.name || session.user.email) ?? '',
+            interests: session.user.user_metadata?.interests ?? [],
+            education: session.user.user_metadata?.education ?? ''
+          }
+        });
+      } else if (event === 'SIGNED_OUT') {
+        setState({ user: null });
+        navigate('/login');
+      }
+    });
 
-export default AuthProvider;
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [setState, navigate]);
+
+  return (
+    <AuthContext.Provider value={{ isAuthenticated: !!useStore.getState().user }}>
+      {children}
+    </AuthContext.Provider>
+  );
+};
+
+export const useAuth = () => useContext(AuthContext);

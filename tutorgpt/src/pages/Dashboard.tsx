@@ -257,113 +257,10 @@ const Dashboard = () => {
 
     setIsLoading(true);
     try {
-      console.log('Submitting practice question request for:', userInput);
       const result = await llmService.generatePracticeQuestions(userInput);
-      
-      if (result.error) {
-        console.error('API Error:', result.error);
-        throw new Error(result.error);
-      }
+      if (result.error) throw new Error(result.error);
 
-      console.log('Received response:', result.content);
-
-      // Parse the questions with support for both formats
-      const rawQuestions = result.content.split('\n\n').filter((q: string) => q.trim().startsWith('Q'));
-      console.log(`Found ${rawQuestions.length} raw questions`);
-
-      const questions = rawQuestions.map((q: string, index: number) => {
-        try {
-          const lines = q.split('\n').filter((line: string) => line.trim());
-          console.log(`Question ${index + 1} has ${lines.length} lines:`, lines);
-
-          const question = lines[0].replace(/^Q\d+:\s*/, '').trim();
-          
-          // Check if we're dealing with the "Answer:" format
-          const isAnswerFormat = lines.some((line: string) => line.startsWith('Answer:'));
-          
-          let options: { A: string; B: string; C: string; D: string };
-          let correct: 'A' | 'B' | 'C' | 'D';
-          let explanation = '';
-
-          if (isAnswerFormat) {
-            // Convert Answer format to multiple choice
-            const answerLine = lines.find((line: string) => line.startsWith('Answer:'));
-            const correctAnswer = answerLine?.replace(/^Answer:\s*/, '').trim() || '';
-            
-            const explanationLine = lines.find((line: string) => line.startsWith('Explanation:'));
-            explanation = explanationLine?.replace(/^Explanation:\s*/, '').trim() || 'No explanation provided';
-
-            // Generate plausible wrong answers based on the correct answer
-            const wrongAnswers = generateWrongAnswers(correctAnswer, question);
-            
-            // Randomly place the correct answer
-            const optionIndex = Math.floor(Math.random() * 4);
-            const optionsArray = [...wrongAnswers];
-            optionIndex === 0 ? optionsArray.unshift(correctAnswer) : optionsArray.splice(optionIndex, 0, correctAnswer);
-            
-            options = {
-              A: optionsArray[0],
-              B: optionsArray[1],
-              C: optionsArray[2],
-              D: optionsArray[3],
-            };
-            
-            correct = ['A', 'B', 'C', 'D'][optionIndex] as 'A' | 'B' | 'C' | 'D';
-          } else {
-            // Handle standard multiple choice format
-            if (!lines[1]?.startsWith('A)') || !lines[2]?.startsWith('B)') || 
-                !lines[3]?.startsWith('C)') || !lines[4]?.startsWith('D)')) {
-              console.error(`Question ${index + 1} has invalid option format`);
-              return null;
-            }
-
-            options = {
-              A: lines[1].replace(/^A\)\s*/, '').trim(),
-              B: lines[2].replace(/^B\)\s*/, '').trim(),
-              C: lines[3].replace(/^C\)\s*/, '').trim(),
-              D: lines[4].replace(/^D\)\s*/, '').trim(),
-            };
-
-            const correctLine = lines[5]?.trim() || '';
-            if (!correctLine.startsWith('Correct:')) {
-              console.error(`Question ${index + 1} has invalid correct answer format:`, correctLine);
-              return null;
-            }
-
-            correct = correctLine.replace(/^Correct:\s*/, '').trim() as 'A' | 'B' | 'C' | 'D';
-            if (!['A', 'B', 'C', 'D'].includes(correct)) {
-              console.error(`Question ${index + 1} has invalid correct answer value:`, correct);
-              return null;
-            }
-
-            const explanationLine = lines[6]?.trim() || '';
-            explanation = explanationLine.replace(/^Explanation:\s*/, '').trim() || 'No explanation provided';
-          }
-
-          const parsedQuestion = {
-            id: Date.now().toString() + Math.random(),
-            question,
-            options,
-            correct,
-            explanation,
-            difficulty: selectedDifficulty as 'easy' | 'medium' | 'hard',
-          };
-
-          console.log(`Successfully parsed question ${index + 1}:`, parsedQuestion);
-          return parsedQuestion;
-        } catch (err) {
-          console.error(`Error parsing question ${index + 1}:`, err);
-          console.error('Question content:', q);
-          return null;
-        }
-      }).filter(Boolean) as PracticeQuestion[];
-
-      console.log('Final parsed questions:', questions);
-
-      if (questions.length === 0) {
-        throw new Error('Failed to parse questions. Please try again.');
-      }
-
+      const questions = JSON.parse(result.content) as PracticeQuestion[];
       setPracticeQuestions(questions);
       setUserInput('');
 
@@ -373,7 +270,6 @@ const Dashboard = () => {
         color: 'green',
       });
     } catch (error) {
-      console.error('Practice question generation error:', error);
       notifications.show({
         title: 'Error',
         message: error instanceof Error ? error.message : 'Failed to generate questions',
@@ -384,89 +280,12 @@ const Dashboard = () => {
     }
   };
 
-  // Enhanced wrong answer generation
-  const generateWrongAnswers = (correctAnswer: string, question: string): string[] => {
-    const wrongAnswers: string[] = [];
-    
-    // For NLP-related questions
-    if (question.toLowerCase().includes('nlp')) {
-      wrongAnswers.push(
-        'Natural Language Programming',
-        'Neural Language Processing',
-        'Network Language Protocol',
-        'Natural Learning Process',
-        'Nested Language Protocol',
-        'Neural Learning Platform'
-      );
-    } 
-    // For programming-related questions
-    else if (question.toLowerCase().includes('programming') || 
-             question.toLowerCase().includes('code') ||
-             question.toLowerCase().includes('developer')) {
-      wrongAnswers.push(
-        'JavaScript',
-        'Python',
-        'Java',
-        'C++',
-        'Ruby',
-        'TypeScript'
-      );
-    }
-    // For definition questions
-    else if (question.toLowerCase().startsWith('what is') || 
-             question.toLowerCase().startsWith('define')) {
-      wrongAnswers.push(
-        `A different concept than ${correctAnswer}`,
-        `The opposite of ${correctAnswer}`,
-        `Similar but not the same as ${correctAnswer}`,
-        `A common misconception about ${correctAnswer}`,
-        `An outdated definition of ${correctAnswer}`,
-        `An incomplete understanding of ${correctAnswer}`
-      );
-    }
-    // For technical questions
-    else if (question.toLowerCase().includes('technical') || 
-             question.toLowerCase().includes('technology')) {
-      wrongAnswers.push(
-        'A hardware component',
-        'A software application',
-        'A network protocol',
-        'A database system',
-        'An operating system feature',
-        'A cloud service'
-      );
-    }
-    // Default case
-    else {
-      wrongAnswers.push(
-        `Not ${correctAnswer}`,
-        `Similar to ${correctAnswer}`,
-        `Opposite of ${correctAnswer}`,
-        `Alternative to ${correctAnswer}`,
-        `Variation of ${correctAnswer}`,
-        `Related but different from ${correctAnswer}`
-      );
-    }
-    
-    // Shuffle and return 3 wrong answers
-    return wrongAnswers
-      .sort(() => Math.random() - 0.5)
-      .slice(0, 3);
-  };
-
   const handleAnswerSubmit = (questionId: string, selectedAnswer: string) => {
     setPracticeQuestions(prev =>
       prev.map(q => {
         if (q.id === questionId) {
-          // Convert both to uppercase for case-insensitive comparison
           const isCorrect = selectedAnswer.toUpperCase() === q.correct.toUpperCase();
-          console.log('Answer check:', { 
-            selected: selectedAnswer, 
-            correct: q.correct, 
-            isCorrect 
-          });
           
-          // Update stats
           setPracticeStats(stats => ({
             total: stats.total + 1,
             correct: stats.correct + (isCorrect ? 1 : 0),
@@ -512,7 +331,7 @@ const Dashboard = () => {
                   </ActionIcon>
                 </Tooltip>
               </Group>
-              <Box style={{ height: '400px', overflowY: 'auto' }}>
+              <Box ref={chatBoxRef} style={{ height: '400px', overflowY: 'auto' }}>
                 {chatHistory.map((message, index) => (
                   <Paper
                     key={index}
@@ -722,7 +541,6 @@ const Dashboard = () => {
         </Group>
       </Group>
 
-      {/* Stats Display */}
       {practiceStats.total > 0 && (
         <Paper p="md" withBorder>
           <MantineGroup justify="space-between">

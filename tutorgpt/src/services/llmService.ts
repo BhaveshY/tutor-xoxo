@@ -16,7 +16,7 @@ export const llmService = {
       return data;
     } catch (error) {
       console.error('Error generating tutor response:', error);
-      return { error: error.message };
+      return { error: error instanceof Error ? error.message : 'An unknown error occurred' };
     }
   },
 
@@ -30,7 +30,7 @@ export const llmService = {
       return data;
     } catch (error) {
       console.error('Error generating roadmap:', error);
-      return { error: error.message };
+      return { error: error instanceof Error ? error.message : 'An unknown error occurred' };
     }
   },
 
@@ -44,7 +44,7 @@ export const llmService = {
       return data;
     } catch (error) {
       console.error('Error generating practice questions:', error);
-      return { error: error.message };
+      return { error: error instanceof Error ? error.message : 'An unknown error occurred' };
     }
   },
 }; 
