@@ -16,6 +16,8 @@ import {
   List,
   ThemeIcon,
   Badge,
+  Radio,
+  Group as RadioGroup,
 } from '@mantine/core';
 import { useState } from 'react';
 import { notifications } from '@mantine/notifications';
@@ -52,8 +54,21 @@ interface SavedQuestion {
 interface PracticeQuestion {
   id: string;
   question: string;
-  answer: string;
-  explanation: string;
+  options: {
+    A: string;
+    B: string;
+    C: string;
+    D: string;
+  };
+  correct: 'A' | 'B' | 'C' | 'D';
+  explanation: {
+    correct: string;
+    A: string;
+    B: string;
+    C: string;
+    D: string;
+  };
+  selectedAnswer?: string;
   isCorrect?: boolean;
 }
 
@@ -239,12 +254,57 @@ const Dashboard = () => {
       const questions = result.content
         .split('\n\n')
         .filter(q => q.trim().startsWith('Q'))
-        .map(q => ({
-          id: Date.now().toString() + Math.random(),
-          question: q.split('\n')[0].replace(/^Q\d+:\s*/, ''),
-          answer: q.split('\n').find(line => line.includes('Answer:'))?.replace('Answer:', '').trim() || '',
-          explanation: q.split('\n').find(line => line.includes('Explanation:'))?.replace('Explanation:', '').trim() || '',
-        }));
+        .map(q => {
+          try {
+            const lines = q.split('\n').filter(line => line.trim());
+            if (lines.length < 6) return null; // Skip malformed questions
+
+            const question = lines[0].replace(/^Q\d+:\s*/, '').trim();
+            const options = {
+              A: lines[1].replace(/^A\)\s*/, '').trim(),
+              B: lines[2].replace(/^B\)\s*/, '').trim(),
+              C: lines[3].replace(/^C\)\s*/, '').trim(),
+              D: lines[4].replace(/^D\)\s*/, '').trim(),
+            };
+            const correct = lines[5].replace(/^Correct:\s*/, '').trim() as 'A' | 'B' | 'C' | 'D';
+            
+            // Find the explanation JSON block
+            const explanationStart = lines.findIndex(line => line.includes('Explanation:'));
+            if (explanationStart === -1) return null;
+
+            let explanationJson = lines.slice(explanationStart + 1).join('\n');
+            // Handle both direct JSON and string that needs parsing
+            let explanation;
+            try {
+              explanation = typeof explanationJson === 'string' ? JSON.parse(explanationJson) : explanationJson;
+            } catch {
+              // Fallback explanation if JSON parsing fails
+              explanation = {
+                correct: "Explanation not available in correct format",
+                A: "Details not available",
+                B: "Details not available",
+                C: "Details not available",
+                D: "Details not available"
+              };
+            }
+
+            return {
+              id: Date.now().toString() + Math.random(),
+              question,
+              options,
+              correct,
+              explanation,
+            };
+          } catch (err) {
+            console.error('Failed to parse question:', err);
+            return null;
+          }
+        })
+        .filter(Boolean); // Remove any null questions
+
+      if (questions.length === 0) {
+        throw new Error('Failed to generate valid questions. Please try again.');
+      }
 
       setPracticeQuestions(questions);
       setUserInput('');
@@ -265,11 +325,19 @@ const Dashboard = () => {
     }
   };
 
-  const handleAnswerSubmit = (questionId: string, isCorrect: boolean) => {
+  const handleAnswerSubmit = (questionId: string, selectedAnswer: string) => {
     setPracticeQuestions(prev =>
-      prev.map(q =>
-        q.id === questionId ? { ...q, isCorrect } : q
-      )
+      prev.map(q => {
+        if (q.id === questionId) {
+          const isCorrect = selectedAnswer === q.correct;
+          return {
+            ...q,
+            selectedAnswer,
+            isCorrect,
+          };
+        }
+        return q;
+      })
     );
     setShowExplanation(prev => ({ ...prev, [questionId]: true }));
   };
@@ -542,32 +610,53 @@ const Dashboard = () => {
                 </Group>
                 
                 <Text>{question.question}</Text>
-                
-                <Group>
-                  <Button
-                    variant="light"
-                    color="green"
-                    onClick={() => handleAnswerSubmit(question.id, true)}
-                    disabled={question.isCorrect !== undefined}
-                  >
-                    I Got It Right
-                  </Button>
-                  <Button
-                    variant="light"
-                    color="red"
-                    onClick={() => handleAnswerSubmit(question.id, false)}
-                    disabled={question.isCorrect !== undefined}
-                  >
-                    I Got It Wrong
-                  </Button>
-                </Group>
+
+                <RadioGroup
+                  value={question.selectedAnswer || ''}
+                  onChange={(value: string) => handleAnswerSubmit(question.id, value)}
+                  disabled={question.selectedAnswer !== undefined}
+                >
+                  <Stack gap="xs">
+                    {Object.entries(question.options).map(([key, value]) => (
+                      <Radio
+                        key={key}
+                        value={key}
+                        label={`${key}) ${value}`}
+                        color={
+                          question.selectedAnswer === key
+                            ? question.isCorrect
+                              ? 'green'
+                              : 'red'
+                            : question.selectedAnswer !== undefined && key === question.correct
+                            ? 'green'
+                            : undefined
+                        }
+                      />
+                    ))}
+                  </Stack>
+                </RadioGroup>
 
                 {showExplanation[question.id] && (
                   <Paper p="sm" bg="gray.0">
-                    <Text size="sm" fw={500} mb="xs">
-                      Explanation:
-                    </Text>
-                    <Text size="sm">{question.explanation}</Text>
+                    <Stack gap="xs">
+                      <Text size="sm" fw={500} c={question.isCorrect ? 'green' : 'red'}>
+                        {question.isCorrect ? 'Correct!' : 'Incorrect'}
+                      </Text>
+                      
+                      <Text size="sm" fw={500}>
+                        Explanation for the correct answer ({question.correct}):
+                      </Text>
+                      <Text size="sm">{question.explanation.correct}</Text>
+
+                      {!question.isCorrect && question.selectedAnswer && (
+                        <>
+                          <Text size="sm" fw={500} mt="xs">
+                            Why your answer ({question.selectedAnswer}) was incorrect:
+                          </Text>
+                          <Text size="sm">{question.explanation[question.selectedAnswer]}</Text>
+                        </>
+                      )}
+                    </Stack>
                   </Paper>
                 )}
               </Stack>
