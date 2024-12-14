@@ -1,18 +1,14 @@
-import { supabase } from '../lib/supabase.ts';
+import { createClient } from '@supabase/supabase-js';
 
-export interface LLMResponse {
-  content: string;
-  error?: string;
-}
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-export interface LLMError extends Error {
-  message: string;
-}
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 export const llmService = {
-  async generateTutorResponse(prompt: string): Promise<LLMResponse> {
+  generateTutorResponse: async (prompt: string) => {
     try {
-      const { data, error } = await supabase.functions.invoke('generate-tutor-response', {
+      const { data, error } = await supabase.functions.invoke('tutor', {
         body: { prompt },
       });
 
@@ -20,44 +16,35 @@ export const llmService = {
       return data;
     } catch (error) {
       console.error('Error generating tutor response:', error);
-      return {
-        content: '',
-        error: error instanceof Error ? error.message : 'Failed to generate response. Please try again.',
-      };
+      return { error: error.message };
     }
   },
 
-  async generateRoadmap(goals: string): Promise<LLMResponse> {
+  generateRoadmap: async (prompt: string) => {
     try {
-      const { data, error } = await supabase.functions.invoke('generate-roadmap', {
-        body: { goals },
+      const { data, error } = await supabase.functions.invoke('roadmap', {
+        body: { prompt },
       });
 
       if (error) throw error;
       return data;
     } catch (error) {
       console.error('Error generating roadmap:', error);
-      return {
-        content: '',
-        error: error instanceof Error ? error.message : 'Failed to generate roadmap. Please try again.',
-      };
+      return { error: error.message };
     }
   },
 
-  async generatePracticeQuestions(topic: string): Promise<LLMResponse> {
+  generatePracticeQuestions: async (prompt: string) => {
     try {
-      const { data, error } = await supabase.functions.invoke('generate-practice-questions', {
-        body: { topic },
+      const { data, error } = await supabase.functions.invoke('practice', {
+        body: { prompt },
       });
 
       if (error) throw error;
       return data;
     } catch (error) {
       console.error('Error generating practice questions:', error);
-      return {
-        content: '',
-        error: error instanceof Error ? error.message : 'Failed to generate questions. Please try again.',
-      };
+      return { error: error.message };
     }
   },
 }; 

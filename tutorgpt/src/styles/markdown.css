@@ -100,4 +100,107 @@
 .markdown-content img {
   max-width: 100%;
   box-sizing: content-box;
+}
+
+/* Roadmap specific styles */
+.roadmap-content {
+  padding: 20px;
+}
+
+.roadmap-content h2 {
+  color: #228be6;
+  border-bottom: 2px solid #228be6;
+  margin-top: 32px;
+}
+
+.roadmap-content h3 {
+  color: #1c7ed6;
+  margin-top: 24px;
+}
+
+.roadmap-content .milestone {
+  background-color: #e7f5ff;
+  border-left: 4px solid #228be6;
+  padding: 16px;
+  margin: 16px 0;
+  border-radius: 0 4px 4px 0;
+}
+
+.roadmap-content .resource {
+  background-color: #f1f3f5;
+  padding: 12px;
+  margin: 8px 0;
+  border-radius: 4px;
+}
+
+/* Practice question styles */
+.question-content {
+  padding: 16px;
+  border-radius: 4px;
+  margin-bottom: 16px;
+}
+
+.question-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.question-body {
+  margin-bottom: 16px;
+}
+
+.question-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.question-option {
+  padding: 12px;
+  border-radius: 4px;
+  background-color: #f8f9fa;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.question-option:hover {
+  background-color: #e9ecef;
+}
+
+.question-option.selected {
+  background-color: #e7f5ff;
+  border: 1px solid #228be6;
+}
+
+.question-explanation {
+  margin-top: 16px;
+  padding: 16px;
+  background-color: #f1f3f5;
+  border-radius: 4px;
+  border-left: 4px solid #228be6;
+}
+
+/* Animation styles */
+.fade-enter {
+  opacity: 0;
+  transform: translateY(10px);
+}
+
+.fade-enter-active {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 300ms, transform 300ms;
+}
+
+.fade-exit {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.fade-exit-active {
+  opacity: 0;
+  transform: translateY(-10px);
+  transition: opacity 300ms, transform 300ms;
 } 
