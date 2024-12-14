@@ -32,7 +32,13 @@ Make sure each question is separated by a blank line for proper parsing.`;
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
+    return new Response('ok', { 
+      headers: {
+        ...corsHeaders,
+        'Content-Type': 'application/json',
+      },
+      status: 200,
+    });
   }
 
   try {

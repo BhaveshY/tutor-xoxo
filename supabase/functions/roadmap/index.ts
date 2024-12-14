@@ -53,7 +53,13 @@ Use this structure:
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
+    return new Response('ok', { 
+      headers: {
+        ...corsHeaders,
+        'Content-Type': 'application/json',
+      },
+      status: 200,
+    });
   }
 
   try {
