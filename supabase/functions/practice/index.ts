@@ -10,35 +10,34 @@ const SYSTEM_PROMPT = `You are an expert educational content creator who special
 Your task is to generate a set of practice questions based on the given topic.
 
 Follow these guidelines:
-1. Create 3-5 questions that test different aspects of the topic
+1. Create 3 multiple-choice questions that test different aspects of the topic
 2. Each question should:
    - Be clear and unambiguous
-   - Test understanding rather than just memorization
-   - Include a detailed explanation of the answer
-   - Provide constructive feedback for both correct and incorrect responses
-3. Format each question in a consistent structure
-4. Use appropriate difficulty level based on the context
-5. Include a mix of question types (conceptual, practical, analytical)
+   - Have exactly 4 options (A, B, C, D)
+   - Include a correct answer and explanation
+3. Format the response as a valid JSON array of questions
 
-Use this format for each question:
-
-Q1: [Question text]
-Answer: [Correct answer]
-Explanation: [Detailed explanation of why this is the correct answer, including relevant concepts]
-
-[Continue with more questions...]
-
-Make sure each question is separated by a blank line for proper parsing.`;
+Example format:
+[
+  {
+    "id": "1",
+    "question": "What is the capital of France?",
+    "options": {
+      "A": "London",
+      "B": "Paris",
+      "C": "Berlin",
+      "D": "Madrid"
+    },
+    "correct": "B",
+    "explanation": "Paris is the capital and largest city of France.",
+    "difficulty": "easy"
+  }
+]`;
 
 serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { 
-      headers: {
-        ...corsHeaders,
-        'Content-Type': 'application/json',
-      },
-      status: 200,
-    });
+    return new Response('ok', { headers: corsHeaders });
   }
 
   try {
@@ -61,16 +60,37 @@ serve(async (req) => {
       model: 'gpt-4',
       messages: [
         { role: 'system', content: SYSTEM_PROMPT },
-        { role: 'user', content: prompt },
+        { role: 'user', content: `Generate 3 multiple-choice questions about: ${prompt}` }
       ],
       temperature: 0.7,
       max_tokens: 2000,
     });
 
-    const content = completion.choices[0]?.message?.content || '';
+    const content = completion.choices[0]?.message?.content;
+    
+    if (!content) {
+      throw new Error('No content generated from OpenAI');
+    }
+
+    // Attempt to parse the response as JSON
+    let parsedContent;
+    try {
+      parsedContent = JSON.parse(content);
+    } catch (parseError) {
+      console.error('Failed to parse OpenAI response:', content);
+      throw new Error('Failed to parse questions format');
+    }
+
+    // Validate the response structure
+    if (!Array.isArray(parsedContent)) {
+      throw new Error('Response is not an array of questions');
+    }
+
+    // Convert the response to a string format
+    const responseContent = JSON.stringify({ content: JSON.stringify(parsedContent) });
 
     return new Response(
-      JSON.stringify({ content }),
+      responseContent,
       {
         headers: {
           ...corsHeaders,
@@ -79,9 +99,12 @@ serve(async (req) => {
       }
     );
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+    console.error('Error in practice function:', error);
     return new Response(
-      JSON.stringify({ error: errorMessage }),
+      JSON.stringify({
+        error: error instanceof Error ? error.message : 'An unknown error occurred',
+        details: error instanceof Error ? error.stack : undefined,
+      }),
       {
         status: 500,
         headers: {
