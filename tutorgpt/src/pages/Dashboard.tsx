@@ -18,6 +18,7 @@ import {
   Badge,
   Radio,
   Group as RadioGroup,
+  Group as MantineGroup,
 } from '@mantine/core';
 import { useState } from 'react';
 import { notifications } from '@mantine/notifications';
@@ -267,18 +268,18 @@ const Dashboard = () => {
       console.log('Received response:', result.content);
 
       // Parse the questions with support for both formats
-      const rawQuestions = result.content.split('\n\n').filter(q => q.trim().startsWith('Q'));
+      const rawQuestions = result.content.split('\n\n').filter((q: string) => q.trim().startsWith('Q'));
       console.log(`Found ${rawQuestions.length} raw questions`);
 
-      const questions = rawQuestions.map((q, index) => {
+      const questions = rawQuestions.map((q: string, index: number) => {
         try {
-          const lines = q.split('\n').filter(line => line.trim());
+          const lines = q.split('\n').filter((line: string) => line.trim());
           console.log(`Question ${index + 1} has ${lines.length} lines:`, lines);
 
           const question = lines[0].replace(/^Q\d+:\s*/, '').trim();
           
           // Check if we're dealing with the "Answer:" format
-          const isAnswerFormat = lines.some(line => line.startsWith('Answer:'));
+          const isAnswerFormat = lines.some((line: string) => line.startsWith('Answer:'));
           
           let options: { A: string; B: string; C: string; D: string };
           let correct: 'A' | 'B' | 'C' | 'D';
@@ -286,10 +287,10 @@ const Dashboard = () => {
 
           if (isAnswerFormat) {
             // Convert Answer format to multiple choice
-            const answerLine = lines.find(line => line.startsWith('Answer:'));
+            const answerLine = lines.find((line: string) => line.startsWith('Answer:'));
             const correctAnswer = answerLine?.replace(/^Answer:\s*/, '').trim() || '';
             
-            const explanationLine = lines.find(line => line.startsWith('Explanation:'));
+            const explanationLine = lines.find((line: string) => line.startsWith('Explanation:'));
             explanation = explanationLine?.replace(/^Explanation:\s*/, '').trim() || 'No explanation provided';
 
             // Generate plausible wrong answers based on the correct answer
@@ -345,7 +346,7 @@ const Dashboard = () => {
             options,
             correct,
             explanation,
-            difficulty: 'medium',
+            difficulty: selectedDifficulty as 'easy' | 'medium' | 'hard',
           };
 
           console.log(`Successfully parsed question ${index + 1}:`, parsedQuestion);
@@ -355,7 +356,7 @@ const Dashboard = () => {
           console.error('Question content:', q);
           return null;
         }
-      }).filter(Boolean);
+      }).filter(Boolean) as PracticeQuestion[];
 
       console.log('Final parsed questions:', questions);
 
@@ -457,7 +458,13 @@ const Dashboard = () => {
     setPracticeQuestions(prev =>
       prev.map(q => {
         if (q.id === questionId) {
-          const isCorrect = selectedAnswer === q.correct;
+          // Convert both to uppercase for case-insensitive comparison
+          const isCorrect = selectedAnswer.toUpperCase() === q.correct.toUpperCase();
+          console.log('Answer check:', { 
+            selected: selectedAnswer, 
+            correct: q.correct, 
+            isCorrect 
+          });
           
           // Update stats
           setPracticeStats(stats => ({
@@ -718,7 +725,7 @@ const Dashboard = () => {
       {/* Stats Display */}
       {practiceStats.total > 0 && (
         <Paper p="md" withBorder>
-          <Group position="apart">
+          <MantineGroup justify="space-between">
             <Group>
               <ThemeIcon color="blue" size="lg" variant="light">
                 <IconBrain size={20} />
@@ -760,7 +767,7 @@ const Dashboard = () => {
                 ? Math.round((practiceStats.correct / practiceStats.total) * 100)
                 : 0}%
             </Text>
-          </Group>
+          </MantineGroup>
         </Paper>
       )}
 
@@ -802,8 +809,8 @@ const Dashboard = () => {
               }}
             >
               <Stack gap="sm">
-                <Group position="apart">
-                  <Group>
+                <MantineGroup justify="space-between">
+                  <MantineGroup>
                     <ThemeIcon
                       color={question.isCorrect === undefined ? 'blue' : question.isCorrect ? 'green' : 'red'}
                       variant="light"
@@ -819,7 +826,7 @@ const Dashboard = () => {
                       )}
                     </ThemeIcon>
                     <Text fw={500}>Question {index + 1}</Text>
-                  </Group>
+                  </MantineGroup>
                   <Badge 
                     color={
                       question.difficulty === 'easy' ? 'green' : 
@@ -829,14 +836,13 @@ const Dashboard = () => {
                   >
                     {question.difficulty}
                   </Badge>
-                </Group>
+                </MantineGroup>
                 
                 <Text size="lg">{question.question}</Text>
 
-                <RadioGroup
+                <Radio.Group
                   value={question.selectedAnswer || ''}
-                  onChange={(value) => handleAnswerSubmit(question.id, value)}
-                  disabled={question.selectedAnswer !== undefined}
+                  onChange={(value: string) => handleAnswerSubmit(question.id, value)}
                 >
                   <Stack gap="xs">
                     {Object.entries(question.options).map(([key, value]) => (
@@ -844,6 +850,7 @@ const Dashboard = () => {
                         key={key}
                         value={key}
                         label={`${key}) ${value}`}
+                        disabled={question.selectedAnswer !== undefined}
                         color={
                           question.selectedAnswer === key
                             ? question.isCorrect
@@ -862,7 +869,7 @@ const Dashboard = () => {
                       />
                     ))}
                   </Stack>
-                </RadioGroup>
+                </Radio.Group>
 
                 {showExplanation[question.id] && (
                   <Paper 
