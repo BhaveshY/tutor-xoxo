@@ -21,6 +21,11 @@ interface ReflectionParams {
   prompt: string;
 }
 
+type PracticeParams = {
+  prompt: string;
+  difficulty: 'easy' | 'medium' | 'hard';
+};
+
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 export const llmService = {
@@ -52,15 +57,13 @@ export const llmService = {
     }
   },
 
-  generatePracticeQuestions: async (prompt: string): Promise<LLMResponse> => {
+  generatePracticeQuestions: async (params: PracticeParams): Promise<LLMResponse> => {
     try {
       const { data, error } = await supabase.functions.invoke('practice', {
-        body: { prompt },
+        body: params,
       });
 
       if (error) throw error;
-
-      // The content is already stringified JSON from the Edge Function
       return { content: data.content };
     } catch (error) {
       console.error('Error generating practice questions:', error);

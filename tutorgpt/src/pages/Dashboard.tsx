@@ -257,7 +257,11 @@ const Dashboard = () => {
 
     setIsLoading(true);
     try {
-      const result = await llmService.generatePracticeQuestions(userInput);
+      const result = await llmService.generatePracticeQuestions({
+        prompt: userInput,
+        difficulty: selectedDifficulty as 'easy' | 'medium' | 'hard'
+      });
+      
       if (result.error) throw new Error(result.error);
 
       const questions = JSON.parse(result.content) as PracticeQuestion[];

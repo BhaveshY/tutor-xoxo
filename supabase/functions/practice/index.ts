@@ -7,7 +7,7 @@ const openai = new OpenAI({
 });
 
 const SYSTEM_PROMPT = `You are an expert educational content creator who specializes in creating practice questions.
-Your task is to generate a set of practice questions based on the given topic.
+Your task is to generate a set of practice questions based on the given topic and difficulty level.
 
 Follow these guidelines:
 1. Create 3 multiple-choice questions that test different aspects of the topic
@@ -15,6 +15,7 @@ Follow these guidelines:
    - Be clear and unambiguous
    - Have exactly 4 options (A, B, C, D)
    - Include a correct answer and explanation
+   - Match the specified difficulty level exactly
 3. Format the response as a valid JSON array of questions
 
 Example format:
@@ -30,9 +31,11 @@ Example format:
     },
     "correct": "B",
     "explanation": "Paris is the capital and largest city of France.",
-    "difficulty": "easy"
+    "difficulty": "medium"
   }
-]`;
+]
+
+IMPORTANT: All questions must be at the specified difficulty level. Do not mix difficulty levels.`;
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -41,7 +44,7 @@ serve(async (req) => {
   }
 
   try {
-    const { prompt } = await req.json();
+    const { prompt, difficulty = 'medium' } = await req.json();
 
     if (!prompt) {
       return new Response(
@@ -56,11 +59,24 @@ serve(async (req) => {
       );
     }
 
+    if (!['easy', 'medium', 'hard'].includes(difficulty)) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid difficulty level. Must be one of: easy, medium, hard' }),
+        {
+          status: 400,
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+    }
+
     const completion = await openai.chat.completions.create({
       model: 'gpt-4',
       messages: [
         { role: 'system', content: SYSTEM_PROMPT },
-        { role: 'user', content: `Generate 3 multiple-choice questions about: ${prompt}` }
+        { role: 'user', content: `Generate 3 ${difficulty}-difficulty multiple-choice questions about: ${prompt}` }
       ],
       temperature: 0.7,
       max_tokens: 2000,
@@ -85,6 +101,12 @@ serve(async (req) => {
     if (!Array.isArray(parsedContent)) {
       throw new Error('Response is not an array of questions');
     }
+
+    // Ensure all questions have the correct difficulty
+    parsedContent = parsedContent.map(question => ({
+      ...question,
+      difficulty
+    }));
 
     // Convert the response to a string format
     const responseContent = JSON.stringify({ content: JSON.stringify(parsedContent) });
