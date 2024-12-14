@@ -1,0 +1,158 @@
+TutorGPT - AI-Powered Learning Platform
+=====================================
+
+Project Overview
+---------------
+TutorGPT is a multimodal React web application that serves as an AI-powered tutor, helping users learn through various interactive modes. The application uses OpenAI's GPT-4 for generating responses and Supabase for backend services.
+
+Tech Stack
+----------
+Frontend:
+- React 18 with TypeScript
+- Vite for build tooling
+- Mantine UI for components
+- React Router for navigation
+- Zustand for state management
+- Monaco Editor for code editing
+- React Markdown for content rendering
+
+Backend:
+- Supabase for authentication and database
+- Supabase Edge Functions for serverless computing
+- OpenAI GPT-4, Claude 3.5 API for AI responses
+
+Key Features
+-----------
+1. Tutor Mode
+   - Interactive Q&A with AI tutor
+   - Markdown-formatted responses
+   - Clear explanations with examples
+
+2. Roadmap Mode
+   - Personalized learning path generation
+   - Interactive roadmap editor
+   - Structured learning milestones
+
+3. Practice Mode
+   - AI-generated practice questions
+   - Multiple-choice format
+   - Explanations for correct answers
+
+4. User Management
+   - Email-based authentication
+   - User profiles with interests
+   - Progress tracking
+
+Project Structure
+----------------
+/tutorgpt
+  /src
+    /components      - Reusable React components
+    /pages          - Main page components
+    /services       - API and LLM services
+    /store          - Zustand state management
+    /styles         - CSS styles
+    /lib            - Utility functions
+    /types          - TypeScript types
+
+/supabase
+  /functions        - Edge Functions for AI integration
+    - generate-tutor-response
+    - generate-roadmap
+    - generate-practice-questions
+
+Environment Variables
+--------------------
+Frontend (.env):
+VITE_SUPABASE_URL=your_supabase_url
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+
+Backend (Supabase Edge Functions):
+OPENAI_API_KEY=your_openai_api_key
+SUPABASE_URL=your_supabase_url
+SUPABASE_ANON_KEY=your_supabase_anon_key
+
+Setup Instructions
+----------------
+1. Clone the repository
+2. Install dependencies:
+   cd tutorgpt
+   npm install
+
+3. Set up environment variables:
+   - Create .env file in tutorgpt directory
+   - Create .env file in supabase/functions directory
+
+4. Deploy Edge Functions:
+   supabase functions deploy generate-tutor-response
+   supabase functions deploy generate-roadmap
+   supabase functions deploy generate-practice-questions
+
+5. Start development server:
+   npm run dev
+
+Database Schema
+--------------
+profiles
+  - id: uuid (primary key)
+  - email: string
+  - name: string
+  - interests: string[]
+  - education: string
+
+Authentication Flow
+------------------
+1. User signs up with email/password
+2. Email confirmation required
+3. Profile created after confirmation
+4. JWT tokens used for API authentication
+
+Edge Function Flow
+-----------------
+1. Client sends request with auth token
+2. Edge function validates token
+3. OpenAI API generates response
+4. Response formatted and returned to client
+
+State Management
+---------------
+Zustand store manages:
+- User authentication state
+- Current mode (tutor/roadmap/practice)
+- Learning progress
+- UI loading states
+
+Deployment
+----------
+1. Frontend: Deploy using Vercel/Netlify
+2. Backend: Supabase platform handles deployment
+3. Edge Functions: Deploy using Supabase CLI
+
+Security Considerations
+---------------------
+1. RLS policies for database access
+2. JWT authentication for API calls
+3. Environment variables for sensitive data
+4. CORS headers for API security
+
+Development Commands
+------------------
+npm run dev      - Start development server
+npm run build    - Build for production
+npm run preview  - Preview production build
+npm run lint     - Run ESLint
+
+Dependencies
+-----------
+Core:
+- react: ^18.2.0
+- @mantine/core: ^7.4.1
+- @supabase/supabase-js: ^2.39.3
+- zustand: ^4.5.0
+
+Development:
+- typescript: ^5.2.2
+- vite: ^5.0.8
+- eslint: ^8.55.0
+
+For detailed version information, see package.json 
