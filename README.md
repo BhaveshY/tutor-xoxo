@@ -77,12 +77,6 @@ tutorxoxo/
 - **State Management**: Custom store implementation
 - **Styling**: Mantine UI components and custom CSS
 
-## 🔒 Security
-
-- Never commit `.env` files to the repository
-- Keep your API keys secure and private
-- Regularly rotate your API keys
-- Use environment variables for all sensitive data
 
 ## 🤝 Contributing
 
@@ -95,16 +89,3 @@ tutorxoxo/
 ## 📝 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🙏 Acknowledgments
-
-- OpenAI for providing the GPT-4 API
-- Supabase for the backend infrastructure
-- Mantine UI for the component library
-- All contributors who have helped shape this project
-
-## 📞 Contact
-
-Bhavesh Y - [@YourTwitter](https://twitter.com/YourTwitter)
-
-Project Link: [https://github.com/BhaveshY/tutor-xoxo](https://github.com/BhaveshY/tutor-xoxo) 
