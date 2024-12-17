@@ -12,34 +12,33 @@ import {
   Progress as MantineProgress,
   Box,
   Checkbox,
+  Button,
+  Tooltip,
 } from '@mantine/core';
-import { IconMap, IconCheck, IconCircleCheck, IconChevronDown, IconChevronRight } from '@tabler/icons-react';
+import { IconMap, IconCheck, IconCircleCheck, IconChevronDown, IconChevronRight, IconBrain } from '@tabler/icons-react';
 import useStore from '../store/useStore.ts';
 import { notifications } from '@mantine/notifications';
+import { RoadmapTopic, TopicMetrics, Roadmap, RoadmapSubtopic } from '../types/roadmap.ts';
 
-interface RoadmapTopic {
-  id: string;
-  title: string;
-  subtopics: {
-    id: string;
-    title: string;
-    completed: boolean;
-  }[];
-  completed: boolean;
-}
-
-interface RoadmapProgress {
-  id: string;
-  title: string;
+interface ProgressData extends Omit<Roadmap, 'content' | 'timestamp'> {
   topics: RoadmapTopic[];
   progress: number;
 }
 
 const Progress = () => {
-  const { roadmaps, getProgress, updateProgress } = useStore();
+  const { 
+    roadmaps, 
+    getProgress, 
+    updateProgress, 
+    updateTopicMetrics, 
+    getTopicMetrics,
+    optimizeRoadmap 
+  } = useStore();
+  
   const [selectedRoadmap, setSelectedRoadmap] = useState<string | null>(null);
-  const [progressData, setProgressData] = useState<RoadmapProgress[]>([]);
+  const [progressData, setProgressData] = useState<ProgressData[]>([]);
   const [expandedTopics, setExpandedTopics] = useState<Set<string>>(new Set());
+  const [startTimes, setStartTimes] = useState<Record<string, number>>({});
 
   useEffect(() => {
     const convertedProgress = roadmaps.map(roadmap => {
@@ -48,26 +47,22 @@ const Progress = () => {
 
       if (existingProgress) {
         topics.forEach(topic => {
-          const storedTopic = existingProgress.topics.find(t => t.id === topic.id);
-          if (storedTopic) {
+          const metrics = existingProgress.topicMetrics[topic.id];
+          if (metrics) {
             topic.subtopics.forEach(subtopic => {
-              const storedSubtopic = storedTopic.subtopics.find(st => st.id === subtopic.id);
-              if (storedSubtopic) {
-                subtopic.completed = storedSubtopic.completed;
-              }
+              const completed = metrics.subtopics[subtopic.id]?.completed || false;
+              subtopic.completed = completed;
             });
             topic.completed = topic.subtopics.every(st => st.completed);
           }
         });
       }
 
-      const progress = calculateProgress(topics);
-      
       return {
         id: roadmap.id,
         title: roadmap.title,
         topics,
-        progress,
+        progress: calculateProgress(topics),
       };
     });
     
@@ -121,10 +116,16 @@ const Progress = () => {
   };
 
   const handleSubtopicToggle = (topicId: string, subtopicId: string) => {
+    if (!selectedRoadmap) return;
+
+    const currentTime = Date.now();
+    const startTime = startTimes[`${topicId}-${subtopicId}`] || currentTime;
+    const timeSpent = currentTime - startTime;
+
     setProgressData(prevData => {
-      const newData = prevData.map(roadmap => {
-        if (roadmap.id === selectedRoadmap) {
-          const updatedTopics = roadmap.topics.map(topic => {
+      const updatedData = prevData.map(data => {
+        if (data.id === selectedRoadmap) {
+          const updatedTopics = data.topics.map(topic => {
             if (topic.id === topicId) {
               const updatedSubtopics = topic.subtopics.map(subtopic => {
                 if (subtopic.id === subtopicId) {
@@ -143,32 +144,68 @@ const Progress = () => {
             return topic;
           });
 
-          const progress = calculateProgress(updatedTopics);
-          const updatedRoadmap = {
-            ...roadmap,
+          // Update metrics
+          const topic = updatedTopics.find(t => t.id === topicId);
+          if (topic) {
+            const subtopic = topic.subtopics.find(st => st.id === subtopicId);
+            if (subtopic) {
+              const metrics = getTopicMetrics(selectedRoadmap, topicId) || {
+                timeSpent: 0,
+                attempts: 0,
+                successRate: 0,
+                difficulty: 0.5,
+                lastAttempt: new Date(),
+              };
+
+              const newMetrics: Partial<TopicMetrics> = {
+                timeSpent: metrics.timeSpent + timeSpent,
+                attempts: metrics.attempts + 1,
+                successRate: subtopic.completed ? 
+                  (metrics.successRate * metrics.attempts + 1) / (metrics.attempts + 1) :
+                  (metrics.successRate * metrics.attempts) / (metrics.attempts + 1),
+              };
+
+              updateTopicMetrics(selectedRoadmap, topicId, newMetrics);
+            }
+          }
+
+          return {
+            ...data,
             topics: updatedTopics,
-            progress,
+            progress: calculateProgress(updatedTopics),
           };
-
-          // Update the stored progress
-          updateProgress({
-            roadmapId: updatedRoadmap.id,
-            topics: updatedTopics.map(topic => ({
-              id: topic.id,
-              subtopics: topic.subtopics.map(st => ({
-                id: st.id,
-                completed: st.completed,
-              })),
-            })),
-            lastUpdated: new Date(),
-          });
-
-          return updatedRoadmap;
         }
-        return roadmap;
+        return data;
       });
 
-      return newData;
+      // Update progress in store
+      const updatedRoadmap = updatedData.find(d => d.id === selectedRoadmap);
+      if (updatedRoadmap) {
+        updateProgress({
+          roadmapId: selectedRoadmap,
+          topicMetrics: {},
+          lastUpdated: new Date(),
+        });
+      }
+
+      return updatedData;
+    });
+
+    // Reset start time for the next attempt
+    setStartTimes(prev => ({
+      ...prev,
+      [`${topicId}-${subtopicId}`]: currentTime,
+    }));
+  };
+
+  const handleOptimize = () => {
+    if (!selectedRoadmap) return;
+
+    optimizeRoadmap(selectedRoadmap);
+    notifications.show({
+      title: 'Roadmap Optimized',
+      message: 'Your learning pathway has been optimized based on your performance.',
+      color: 'green',
     });
   };
 
@@ -184,23 +221,54 @@ const Progress = () => {
       }
       return newSet;
     });
+
+    // Start timing when topic is expanded
+    const currentTime = Date.now();
+    const roadmap = progressData.find(r => r.id === selectedRoadmap);
+    if (roadmap) {
+      const topic = roadmap.topics.find(t => t.id === topicId);
+      if (topic) {
+        topic.subtopics.forEach(subtopic => {
+          if (!subtopic.completed) {
+            setStartTimes(prev => ({
+              ...prev,
+              [`${topicId}-${subtopic.id}`]: currentTime,
+            }));
+          }
+        });
+      }
+    }
   };
 
-  const selectedProgress = progressData.find(p => p.id === selectedRoadmap);
+  const selectedProgress = selectedRoadmap ? progressData.find(p => p.id === selectedRoadmap) : null;
 
   return (
     <Container size="xl" py="xl">
       <Stack gap="lg">
         <Group justify="space-between" align="center">
           <Title order={2}>Learning Progress</Title>
-          <Select
-            placeholder="Select a roadmap"
-            data={progressData.map(r => ({ value: r.id, label: r.title }))}
-            value={selectedRoadmap}
-            onChange={setSelectedRoadmap}
-            style={{ width: 300 }}
-            leftSection={<IconMap size={20} />}
-          />
+          <Group>
+            <Select
+              placeholder="Select a roadmap"
+              data={roadmaps.map(r => ({ value: r.id, label: r.title }))}
+              value={selectedRoadmap}
+              onChange={setSelectedRoadmap}
+              style={{ width: 300 }}
+              leftSection={<IconMap size={20} />}
+            />
+            {selectedRoadmap && (
+              <Tooltip label="Optimize learning pathway based on your performance">
+                <Button
+                  variant="light"
+                  color="blue"
+                  leftSection={<IconBrain size={20} />}
+                  onClick={handleOptimize}
+                >
+                  Optimize Pathway
+                </Button>
+              </Tooltip>
+            )}
+          </Group>
         </Group>
 
         {selectedProgress && (
@@ -221,75 +289,86 @@ const Progress = () => {
               />
 
               <Stack gap="md">
-                {selectedProgress.topics.map(topic => (
-                  <Paper key={topic.id} withBorder>
-                    <Box>
-                      <Group 
-                        p="md" 
-                        style={{ cursor: 'pointer' }}
-                        onClick={(e) => toggleTopic(e, topic.id)}
-                      >
-                        <Group gap="sm">
-                          {expandedTopics.has(topic.id) ? (
-                            <IconChevronDown size={20} />
-                          ) : (
-                            <IconChevronRight size={20} />
-                          )}
-                          <ThemeIcon 
-                            color={topic.completed ? 'green' : 'blue'} 
-                            variant="light"
-                            size="lg"
-                          >
-                            {topic.completed ? <IconCircleCheck size={20} /> : <IconMap size={20} />}
-                          </ThemeIcon>
-                        </Group>
-                        <div style={{ flex: 1 }}>
-                          <Text fw={500}>{topic.title}</Text>
-                          <Text size="sm" c="dimmed">
-                            {topic.subtopics.filter(st => st.completed).length} of {topic.subtopics.length} completed
-                          </Text>
-                        </div>
-                        <Badge color={topic.completed ? 'green' : 'blue'}>
-                          {Math.round((topic.subtopics.filter(st => st.completed).length / topic.subtopics.length) * 100)}%
-                        </Badge>
-                      </Group>
-
-                      {expandedTopics.has(topic.id) && (
-                        <Stack gap="xs" p="md" pt={0}>
-                          {topic.subtopics.map(subtopic => (
-                            <Group key={subtopic.id} justify="space-between" onClick={(e) => e.stopPropagation()}>
-                              <Box style={{ flex: 1 }} onClick={(e) => e.stopPropagation()}>
-                                <Checkbox
-                                  label={subtopic.title}
-                                  checked={subtopic.completed}
-                                  onChange={(e) => {
-                                    e.stopPropagation();
-                                    handleSubtopicToggle(topic.id, subtopic.id);
-                                  }}
-                                  styles={{
-                                    label: {
-                                      textDecoration: subtopic.completed ? 'line-through' : 'none',
-                                      color: subtopic.completed ? 'var(--mantine-color-dimmed)' : undefined,
-                                      cursor: 'pointer',
-                                    },
-                                    input: {
-                                      cursor: 'pointer',
-                                    },
-                                  }}
-                                />
-                              </Box>
-                              {subtopic.completed && (
-                                <ThemeIcon color="green" variant="light">
-                                  <IconCheck size={16} />
-                                </ThemeIcon>
+                {selectedProgress.topics.map((topic: RoadmapTopic) => {
+                  const metrics = selectedRoadmap ? getTopicMetrics(selectedRoadmap, topic.id) : undefined;
+                  return (
+                    <Paper key={topic.id} withBorder>
+                      <Box>
+                        <Group 
+                          p="md" 
+                          style={{ cursor: 'pointer' }}
+                          onClick={(e) => toggleTopic(e, topic.id)}
+                        >
+                          <Group gap="sm">
+                            {expandedTopics.has(topic.id) ? (
+                              <IconChevronDown size={20} />
+                            ) : (
+                              <IconChevronRight size={20} />
+                            )}
+                            <ThemeIcon 
+                              color={topic.completed ? 'green' : 'blue'} 
+                              variant="light"
+                              size="lg"
+                            >
+                              {topic.completed ? <IconCircleCheck size={20} /> : <IconMap size={20} />}
+                            </ThemeIcon>
+                          </Group>
+                          <div style={{ flex: 1 }}>
+                            <Text fw={500}>{topic.title}</Text>
+                            <Group gap="xs">
+                              <Text size="sm" c="dimmed">
+                                {topic.subtopics.filter((st: RoadmapSubtopic) => st.completed).length} of {topic.subtopics.length} completed
+                              </Text>
+                              {metrics && (
+                                <Text size="sm" c="dimmed">
+                                  • Success Rate: {Math.round(metrics.successRate * 100)}%
+                                  • Time Spent: {Math.round(metrics.timeSpent / 60000)}min
+                                </Text>
                               )}
                             </Group>
-                          ))}
-                        </Stack>
-                      )}
-                    </Box>
-                  </Paper>
-                ))}
+                          </div>
+                          <Badge color={topic.completed ? 'green' : 'blue'}>
+                            {Math.round((topic.subtopics.filter((st: RoadmapSubtopic) => st.completed).length / topic.subtopics.length) * 100)}%
+                          </Badge>
+                        </Group>
+
+                        {expandedTopics.has(topic.id) && (
+                          <Stack gap="xs" p="md" pt={0}>
+                            {topic.subtopics.map((subtopic: RoadmapSubtopic) => (
+                              <Group key={subtopic.id} justify="space-between" onClick={(e) => e.stopPropagation()}>
+                                <Box style={{ flex: 1 }} onClick={(e) => e.stopPropagation()}>
+                                  <Checkbox
+                                    label={subtopic.title}
+                                    checked={subtopic.completed}
+                                    onChange={(e) => {
+                                      e.stopPropagation();
+                                      handleSubtopicToggle(topic.id, subtopic.id);
+                                    }}
+                                    styles={{
+                                      label: {
+                                        textDecoration: subtopic.completed ? 'line-through' : 'none',
+                                        color: subtopic.completed ? 'var(--mantine-color-dimmed)' : undefined,
+                                        cursor: 'pointer',
+                                      },
+                                      input: {
+                                        cursor: 'pointer',
+                                      },
+                                    }}
+                                  />
+                                </Box>
+                                {subtopic.completed && (
+                                  <ThemeIcon color="green" variant="light">
+                                    <IconCheck size={16} />
+                                  </ThemeIcon>
+                                )}
+                              </Group>
+                            ))}
+                          </Stack>
+                        )}
+                      </Box>
+                    </Paper>
+                  );
+                })}
               </Stack>
             </Stack>
           </Paper>

@@ -40,6 +40,7 @@ import {
 } from '@tabler/icons-react';
 import '../styles/markdown.css';
 import Progress from './Progress.tsx';
+import { RoadmapTopic } from '../types/roadmap.ts';
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -82,6 +83,40 @@ interface PracticeStats {
   incorrect: number;
   streak: number;
 }
+
+const parseRoadmapContent = (content: string): RoadmapTopic[] => {
+  const lines = content.split('\n');
+  const topics: RoadmapTopic[] = [];
+  let currentTopic: RoadmapTopic | null = null;
+
+  lines.forEach(line => {
+    if (line.startsWith('## Milestone')) {
+      if (currentTopic) {
+        topics.push(currentTopic);
+      }
+      const title = line.replace('## Milestone', '').trim().split(':')[1]?.trim() || 'Untitled';
+      currentTopic = {
+        id: Date.now().toString() + Math.random(),
+        title,
+        subtopics: [],
+        completed: false,
+      };
+    } else if (line.startsWith('- ') && currentTopic) {
+      const title = line.replace('- ', '').trim();
+      currentTopic.subtopics.push({
+        id: Date.now().toString() + Math.random(),
+        title,
+        completed: false,
+      });
+    }
+  });
+
+  if (currentTopic) {
+    topics.push(currentTopic);
+  }
+
+  return topics;
+};
 
 const Dashboard = () => {
   const { currentMode, user, addRoadmap, roadmaps } = useStore();
@@ -219,11 +254,21 @@ const Dashboard = () => {
       const result = await llmService.generateRoadmap(userInput);
       if (result.error) throw new Error(result.error);
 
-      const newRoadmap: SavedRoadmap = {
+      // Extract title from content
+      const title = result.content.split('\n')[0].replace('# ', '').trim();
+      
+      const roadmapBase = {
         id: Date.now().toString(),
-        title: userInput,
+        title,
         content: result.content,
         timestamp: new Date(),
+      };
+
+      const topics = parseRoadmapContent(result.content);
+      const newRoadmap = {
+        ...roadmapBase,
+        topics,
+        progress: 0,
       };
 
       addRoadmap(newRoadmap);
