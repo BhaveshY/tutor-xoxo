@@ -139,9 +139,10 @@ const Dashboard = () => {
       };
       setChatHistory(prev => [...prev, userMessage]);
 
-      // Get AI response
+      // Get AI response with chat history
       const result = await llmService.generateTutorResponse(
-        `[Subject: ${selectedSubject || 'General'}] ${userInput}`
+        `[Subject: ${selectedSubject || 'General'}] ${userInput}`,
+        chatHistory.map(msg => ({ role: msg.role, content: msg.content }))
       );
 
       if (result.error) {

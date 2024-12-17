@@ -8,6 +8,11 @@ interface LLMResponse {
   error?: string;
 }
 
+interface ChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
 type PracticeParams = {
   prompt: string;
   difficulty: 'easy' | 'medium' | 'hard';
@@ -16,10 +21,14 @@ type PracticeParams = {
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 export const llmService = {
-  generateTutorResponse: async (prompt: string): Promise<LLMResponse> => {
+  generateTutorResponse: async (prompt: string, chatHistory: ChatMessage[] = []): Promise<LLMResponse> => {
     try {
       const { data, error } = await supabase.functions.invoke('tutor', {
-        body: { prompt },
+        body: { 
+          prompt,
+          chatHistory,
+          subject: prompt.match(/\[Subject: (.+?)\]/)?.[1] || 'General'
+        },
       });
 
       if (error) throw error;
