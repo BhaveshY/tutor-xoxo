@@ -27,6 +27,10 @@ export interface TopicMetrics {
   difficulty: number;
   lastAttempt: Date;
   subtopics: Record<string, { completed: boolean }>;
+  lastAttemptTimestamp: number;
+  averageTimePerSubtopic: number;
+  consistencyScore: number;
+  retentionRate: number;
 }
 
 export interface RoadmapMetrics {

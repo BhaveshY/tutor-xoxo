@@ -15,7 +15,7 @@ import {
   Button,
   Tooltip,
 } from '@mantine/core';
-import { IconMap, IconCheck, IconCircleCheck, IconChevronDown, IconChevronRight, IconBrain } from '@tabler/icons-react';
+import { IconMap, IconCheck, IconCircleCheck, IconChevronDown, IconChevronRight, IconBrain, IconClock } from '@tabler/icons-react';
 import useStore from '../store/useStore.ts';
 import { notifications } from '@mantine/notifications';
 import { RoadmapTopic, TopicMetrics, Roadmap, RoadmapSubtopic } from '../types/roadmap.ts';
@@ -201,12 +201,84 @@ const Progress = () => {
   const handleOptimize = () => {
     if (!selectedRoadmap) return;
 
+    // Store original order for comparison
+    const originalOrder = progressData.find(p => p.id === selectedRoadmap)?.topics.map(t => t.id) || [];
+
     optimizeRoadmap(selectedRoadmap);
-    notifications.show({
-      title: 'Roadmap Optimized',
-      message: 'Your learning pathway has been optimized based on your performance.',
-      color: 'green',
-    });
+
+    // Force refresh of progress data to reflect changes
+    const updatedRoadmap = roadmaps.find(r => r.id === selectedRoadmap);
+    if (updatedRoadmap) {
+      setProgressData(prevData => 
+        prevData.map(data => 
+          data.id === selectedRoadmap 
+            ? {
+                ...data,
+                topics: updatedRoadmap.topics.map(topic => ({
+                  ...topic,
+                  isReordered: originalOrder.indexOf(topic.id) !== updatedRoadmap.topics.findIndex(t => t.id === topic.id)
+                }))
+              }
+            : data
+        )
+      );
+    }
+
+    // Calculate changes
+    const changes = updatedRoadmap?.topics.map((topic, index) => {
+      const oldIndex = originalOrder.indexOf(topic.id);
+      const metrics = getTopicMetrics(selectedRoadmap, topic.id);
+      
+      let reason = '';
+      if (metrics) {
+        if (metrics.consistencyScore > 0.7) reason = 'High consistency in learning pattern';
+        else if (metrics.retentionRate > 0.7) reason = 'Good retention rate';
+        else if (metrics.averageTimePerSubtopic >= 20 && metrics.averageTimePerSubtopic <= 40) 
+          reason = 'Optimal time management';
+        else reason = 'Better prerequisite ordering';
+      }
+
+      return {
+        topicId: topic.id,
+        title: topic.title,
+        moved: index !== oldIndex,
+        oldPosition: oldIndex + 1,
+        newPosition: index + 1,
+        reason
+      };
+    }).filter(change => change.moved) || [];
+
+    // Show optimization summary
+    if (changes.length > 0) {
+      notifications.show({
+        title: 'Roadmap Optimized',
+        message: (
+          <Stack>
+            <Text size="sm" fw={500}>Topics have been reordered based on your learning patterns:</Text>
+            {changes.map((change, index) => (
+              <Box key={index}>
+                <Text size="sm">
+                  "{change.title}" {change.oldPosition < change.newPosition ? 'moved down' : 'moved up'} to position {change.newPosition}
+                </Text>
+                <Text size="xs" c="dimmed">Reason: {change.reason}</Text>
+              </Box>
+            ))}
+            <Text size="xs" c="dimmed" mt="sm">
+              💡 Topics are ordered based on your performance, learning patterns, and topic dependencies.
+              The completion status of all topics and subtopics is preserved.
+            </Text>
+          </Stack>
+        ),
+        color: 'blue',
+        autoClose: false,
+      });
+    } else {
+      notifications.show({
+        title: 'No Changes Needed',
+        message: 'The current order is already optimal based on your learning patterns.',
+        color: 'green',
+      });
+    }
   };
 
   const toggleTopic = (e: React.MouseEvent, topicId: string) => {
@@ -257,7 +329,7 @@ const Progress = () => {
               leftSection={<IconMap size={20} />}
             />
             {selectedRoadmap && (
-              <Tooltip label="Optimize learning pathway based on your performance">
+              <Tooltip label="Optimize the learning pathway based on your performance and learning patterns">
                 <Button
                   variant="light"
                   color="blue"
@@ -276,9 +348,14 @@ const Progress = () => {
             <Stack gap="md">
               <Group justify="space-between" align="center">
                 <Text size="xl" fw={500}>{selectedProgress.title}</Text>
-                <Badge size="lg" variant="filled" color={selectedProgress.progress === 100 ? 'green' : 'blue'}>
-                  {selectedProgress.progress}% Complete
-                </Badge>
+                <Group>
+                  <Text size="sm" c="dimmed">
+                    Topics are ordered by learning efficiency
+                  </Text>
+                  <Badge size="lg" variant="filled" color={selectedProgress.progress === 100 ? 'green' : 'blue'}>
+                    {selectedProgress.progress}% Complete
+                  </Badge>
+                </Group>
               </Group>
 
               <MantineProgress
@@ -289,10 +366,18 @@ const Progress = () => {
               />
 
               <Stack gap="md">
-                {selectedProgress.topics.map((topic: RoadmapTopic) => {
+                {selectedProgress.topics.map((topic: RoadmapTopic & { isReordered?: boolean }) => {
                   const metrics = selectedRoadmap ? getTopicMetrics(selectedRoadmap, topic.id) : undefined;
                   return (
-                    <Paper key={topic.id} withBorder>
+                    <Paper 
+                      key={topic.id} 
+                      withBorder
+                      style={{
+                        transition: 'all 0.3s ease',
+                        transform: topic.isReordered ? 'scale(1.01)' : 'scale(1)',
+                        border: topic.isReordered ? '1px solid var(--mantine-color-blue-5)' : undefined,
+                      }}
+                    >
                       <Box>
                         <Group 
                           p="md" 
@@ -306,7 +391,7 @@ const Progress = () => {
                               <IconChevronRight size={20} />
                             )}
                             <ThemeIcon 
-                              color={topic.completed ? 'green' : 'blue'} 
+                              color={topic.completed ? 'green' : topic.isReordered ? 'blue' : 'gray'} 
                               variant="light"
                               size="lg"
                             >
@@ -314,22 +399,63 @@ const Progress = () => {
                             </ThemeIcon>
                           </Group>
                           <div style={{ flex: 1 }}>
-                            <Text fw={500}>{topic.title}</Text>
+                            <Group gap="xs" align="center">
+                              <Text fw={500}>{topic.title}</Text>
+                              {topic.isReordered && (
+                                <Badge size="sm" variant="dot" color="blue">
+                                  Reordered
+                                </Badge>
+                              )}
+                            </Group>
                             <Group gap="xs">
                               <Text size="sm" c="dimmed">
                                 {topic.subtopics.filter((st: RoadmapSubtopic) => st.completed).length} of {topic.subtopics.length} completed
                               </Text>
                               {metrics && (
-                                <Text size="sm" c="dimmed">
-                                  • Success Rate: {Math.round(metrics.successRate * 100)}%
-                                  • Time Spent: {Math.round(metrics.timeSpent / 60000)}min
-                                </Text>
+                                <>
+                                  <Text size="sm" c="dimmed">
+                                    • Success Rate: {Math.round(metrics.successRate * 100)}%
+                                    • Time Spent: {Math.round(metrics.timeSpent / 60000)}min
+                                  </Text>
+                                  <Group gap={4}>
+                                    {metrics.consistencyScore > 0.7 && (
+                                      <Tooltip label={`High Learning Consistency (${Math.round(metrics.consistencyScore * 100)}%)`}>
+                                        <ThemeIcon color="green" variant="light" size="sm">
+                                          <IconBrain size={12} />
+                                        </ThemeIcon>
+                                      </Tooltip>
+                                    )}
+                                    {metrics.retentionRate > 0.7 && (
+                                      <Tooltip label={`Good Knowledge Retention (${Math.round(metrics.retentionRate * 100)}%)`}>
+                                        <ThemeIcon color="blue" variant="light" size="sm">
+                                          <IconCheck size={12} />
+                                        </ThemeIcon>
+                                      </Tooltip>
+                                    )}
+                                    {metrics.averageTimePerSubtopic >= 20 && metrics.averageTimePerSubtopic <= 40 && (
+                                      <Tooltip label={`Optimal Study Time (${Math.round(metrics.averageTimePerSubtopic)} min/subtopic)`}>
+                                        <ThemeIcon color="violet" variant="light" size="sm">
+                                          <IconClock size={12} />
+                                        </ThemeIcon>
+                                      </Tooltip>
+                                    )}
+                                  </Group>
+                                </>
                               )}
                             </Group>
                           </div>
-                          <Badge color={topic.completed ? 'green' : 'blue'}>
-                            {Math.round((topic.subtopics.filter((st: RoadmapSubtopic) => st.completed).length / topic.subtopics.length) * 100)}%
-                          </Badge>
+                          <Group gap="xs">
+                            <Badge color={topic.completed ? 'green' : 'blue'}>
+                              {Math.round((topic.subtopics.filter((st: RoadmapSubtopic) => st.completed).length / topic.subtopics.length) * 100)}%
+                            </Badge>
+                            {topic.isReordered && (
+                              <Tooltip label="Topic position optimized based on your learning patterns">
+                                <ThemeIcon color="blue" variant="light" size="sm">
+                                  <IconBrain size={12} />
+                                </ThemeIcon>
+                              </Tooltip>
+                            )}
+                          </Group>
                         </Group>
 
                         {expandedTopics.has(topic.id) && (

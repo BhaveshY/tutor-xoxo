@@ -89,6 +89,10 @@ const useStore = create<Store>()(
               difficulty: 0.5,
               lastAttempt: new Date(),
               subtopics: {},
+              lastAttemptTimestamp: Date.now(),
+              averageTimePerSubtopic: 0,
+              consistencyScore: 0,
+              retentionRate: 0,
             };
             
             return {
@@ -112,17 +116,41 @@ const useStore = create<Store>()(
             difficulty: 0.5,
             lastAttempt: new Date(),
             subtopics: {},
+            lastAttemptTimestamp: Date.now(),
+            averageTimePerSubtopic: 0,
+            consistencyScore: 0,
+            retentionRate: 0,
           };
+
+          // Calculate new metrics
+          const updatedMetrics = {
+            ...existingMetrics,
+            ...newMetrics,
+            lastAttempt: new Date(),
+            lastAttemptTimestamp: Date.now(),
+          };
+
+          // Update averageTimePerSubtopic
+          if (newMetrics.timeSpent !== undefined) {
+            const completedSubtopics = Object.values(updatedMetrics.subtopics).filter(s => s.completed).length;
+            updatedMetrics.averageTimePerSubtopic = completedSubtopics > 0 
+              ? updatedMetrics.timeSpent / completedSubtopics 
+              : updatedMetrics.timeSpent;
+          }
+
+          // Update consistencyScore
+          const daysSinceLastAttempt = (Date.now() - existingMetrics.lastAttemptTimestamp) / (1000 * 60 * 60 * 24);
+          updatedMetrics.consistencyScore = Math.max(0, 1 - (daysSinceLastAttempt / 14));
+
+          // Update retentionRate based on success rate and time decay
+          const timeFactor = Math.exp(-daysSinceLastAttempt / 30); // 30-day decay
+          updatedMetrics.retentionRate = updatedMetrics.successRate * timeFactor;
 
           const updatedProgress = {
             ...progress,
             topicMetrics: {
               ...progress.topicMetrics,
-              [topicId]: {
-                ...existingMetrics,
-                ...newMetrics,
-                lastAttempt: new Date(),
-              },
+              [topicId]: updatedMetrics,
             },
             lastUpdated: new Date(),
           };
@@ -155,15 +183,35 @@ const useStore = create<Store>()(
               attemptsCount: progress.topicMetrics[topic.id]?.attempts || 0,
               successRate: progress.topicMetrics[topic.id]?.successRate || 0,
               difficultyRating: progress.topicMetrics[topic.id]?.difficulty || 0.5,
+              lastAttemptTimestamp: progress.topicMetrics[topic.id]?.lastAttemptTimestamp || Date.now(),
+              averageTimePerSubtopic: progress.topicMetrics[topic.id]?.averageTimePerSubtopic || 0,
+              consistencyScore: progress.topicMetrics[topic.id]?.consistencyScore || 0,
+              retentionRate: progress.topicMetrics[topic.id]?.retentionRate || 0,
             },
           }));
 
           const optimizedTopics = evolutionService.optimizeRoadmap(roadmap.topics, performances);
 
+          // Preserve completion status of topics and subtopics
+          const optimizedTopicsWithStatus = optimizedTopics.map(topic => {
+            const originalTopic = roadmap.topics.find(t => t.id === topic.id);
+            return {
+              ...topic,
+              completed: originalTopic?.completed || false,
+              subtopics: topic.subtopics.map(subtopic => {
+                const originalSubtopic = originalTopic?.subtopics.find(s => s.id === subtopic.id);
+                return {
+                  ...subtopic,
+                  completed: originalSubtopic?.completed || false,
+                };
+              }),
+            };
+          });
+
           return {
             roadmaps: state.roadmaps.map(r =>
               r.id === roadmapId
-                ? { ...r, topics: optimizedTopics }
+                ? { ...r, topics: optimizedTopicsWithStatus }
                 : r
             ),
           };
