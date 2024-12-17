@@ -39,6 +39,7 @@ interface Store {
   addRoadmap: (roadmap: SavedRoadmap) => void;
   removeRoadmap: (id: string) => void;
   updateProgress: (progress: RoadmapProgress) => void;
+  getProgress: (roadmapId: string) => RoadmapProgress | undefined;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, name: string) => Promise<void>;
   signOut: () => Promise<void>;
@@ -46,7 +47,7 @@ interface Store {
 
 const useStore = create<Store>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       user: null,
       currentMode: 'tutor',
       roadmaps: [],
@@ -65,12 +66,16 @@ const useStore = create<Store>()(
           progress: state.progress.filter((p) => p.roadmapId !== id),
         })),
       updateProgress: (progress) =>
-        set((state) => ({
-          progress: [
-            ...state.progress.filter((p) => p.roadmapId !== progress.roadmapId),
-            progress,
-          ],
-        })),
+        set((state) => {
+          const newProgress = state.progress.filter(p => p.roadmapId !== progress.roadmapId);
+          return {
+            progress: [...newProgress, { ...progress, lastUpdated: new Date() }],
+          };
+        }),
+      getProgress: (roadmapId) => {
+        const state = get();
+        return state.progress.find(p => p.roadmapId === roadmapId);
+      },
       signIn: async (email, password) => {
         set({ isLoading: true });
         try {
@@ -125,6 +130,29 @@ const useStore = create<Store>()(
         roadmaps: state.roadmaps,
         progress: state.progress,
       }),
+      storage: {
+        getItem: (name) => {
+          const str = localStorage.getItem(name);
+          if (!str) return null;
+          const data = JSON.parse(str);
+          // Convert timestamp strings back to Date objects
+          if (data.state.roadmaps) {
+            data.state.roadmaps = data.state.roadmaps.map((roadmap: any) => ({
+              ...roadmap,
+              timestamp: new Date(roadmap.timestamp),
+            }));
+          }
+          if (data.state.progress) {
+            data.state.progress = data.state.progress.map((progress: any) => ({
+              ...progress,
+              lastUpdated: new Date(progress.lastUpdated),
+            }));
+          }
+          return data;
+        },
+        setItem: (name, value) => localStorage.setItem(name, JSON.stringify(value)),
+        removeItem: (name) => localStorage.removeItem(name),
+      },
     }
   )
 );

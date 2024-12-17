@@ -484,7 +484,9 @@ const Dashboard = () => {
                   <Stack gap={0}>
                     <Text size="lg" fw={600}>{selectedRoadmap.title}</Text>
                     <Text size="sm" c="dimmed">
-                      Created on {selectedRoadmap.timestamp.toLocaleDateString()}
+                      Created on {selectedRoadmap.timestamp instanceof Date 
+                        ? selectedRoadmap.timestamp.toLocaleDateString()
+                        : new Date(selectedRoadmap.timestamp).toLocaleDateString()}
                     </Text>
                   </Stack>
                   <Group>
@@ -575,7 +577,9 @@ const Dashboard = () => {
                         </Text>
                         <Group justify="apart">
                           <Text size="xs" c="dimmed">
-                            {roadmap.timestamp.toLocaleDateString()}
+                            {roadmap.timestamp instanceof Date 
+                              ? roadmap.timestamp.toLocaleDateString()
+                              : new Date(roadmap.timestamp).toLocaleDateString()}
                           </Text>
                           <Badge size="sm" variant="light">
                             {roadmap.content.split('\n').filter(line => line.trim().startsWith('- ')).length} steps

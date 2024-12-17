@@ -7,13 +7,13 @@ import {
   Text,
   Group,
   Select,
-  Accordion,
-  Checkbox,
   Badge,
   ThemeIcon,
   Progress as MantineProgress,
+  Box,
+  Checkbox,
 } from '@mantine/core';
-import { IconMap, IconCheck, IconCircleCheck } from '@tabler/icons-react';
+import { IconMap, IconCheck, IconCircleCheck, IconChevronDown, IconChevronRight } from '@tabler/icons-react';
 import useStore from '../store/useStore.ts';
 import { notifications } from '@mantine/notifications';
 
@@ -36,17 +36,16 @@ interface RoadmapProgress {
 }
 
 const Progress = () => {
-  const { roadmaps, progress: storedProgress, updateProgress } = useStore();
+  const { roadmaps, getProgress, updateProgress } = useStore();
   const [selectedRoadmap, setSelectedRoadmap] = useState<string | null>(null);
   const [progressData, setProgressData] = useState<RoadmapProgress[]>([]);
+  const [expandedTopics, setExpandedTopics] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    // Convert roadmaps to progress format, incorporating any stored progress
     const convertedProgress = roadmaps.map(roadmap => {
       const topics = parseRoadmapContent(roadmap.content);
-      const existingProgress = storedProgress.find(p => p.roadmapId === roadmap.id);
+      const existingProgress = getProgress(roadmap.id);
 
-      // If we have stored progress, update the completion status
       if (existingProgress) {
         topics.forEach(topic => {
           const storedTopic = existingProgress.topics.find(t => t.id === topic.id);
@@ -73,7 +72,7 @@ const Progress = () => {
     });
     
     setProgressData(convertedProgress);
-  }, [roadmaps, storedProgress]);
+  }, [roadmaps, getProgress]);
 
   const parseRoadmapContent = (content: string): RoadmapTopic[] => {
     const lines = content.split('\n');
@@ -145,32 +144,45 @@ const Progress = () => {
           });
 
           const progress = calculateProgress(updatedTopics);
-          return {
+          const updatedRoadmap = {
             ...roadmap,
             topics: updatedTopics,
             progress,
           };
+
+          // Update the stored progress
+          updateProgress({
+            roadmapId: updatedRoadmap.id,
+            topics: updatedTopics.map(topic => ({
+              id: topic.id,
+              subtopics: topic.subtopics.map(st => ({
+                id: st.id,
+                completed: st.completed,
+              })),
+            })),
+            lastUpdated: new Date(),
+          });
+
+          return updatedRoadmap;
         }
         return roadmap;
       });
 
-      // Update the stored progress
-      const updatedRoadmap = newData.find(r => r.id === selectedRoadmap);
-      if (updatedRoadmap) {
-        updateProgress({
-          roadmapId: updatedRoadmap.id,
-          topics: updatedRoadmap.topics.map(topic => ({
-            id: topic.id,
-            subtopics: topic.subtopics.map(st => ({
-              id: st.id,
-              completed: st.completed,
-            })),
-          })),
-          lastUpdated: new Date(),
-        });
-      }
-
       return newData;
+    });
+  };
+
+  const toggleTopic = (e: React.MouseEvent, topicId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setExpandedTopics(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(topicId)) {
+        newSet.delete(topicId);
+      } else {
+        newSet.add(topicId);
+      }
+      return newSet;
     });
   };
 
@@ -208,18 +220,29 @@ const Progress = () => {
                 radius="xl"
               />
 
-              <Accordion variant="contained">
+              <Stack gap="md">
                 {selectedProgress.topics.map(topic => (
-                  <Accordion.Item key={topic.id} value={topic.id}>
-                    <Accordion.Control>
-                      <Group>
-                        <ThemeIcon 
-                          color={topic.completed ? 'green' : 'blue'} 
-                          variant="light"
-                          size="lg"
-                        >
-                          {topic.completed ? <IconCircleCheck size={20} /> : <IconMap size={20} />}
-                        </ThemeIcon>
+                  <Paper key={topic.id} withBorder>
+                    <Box>
+                      <Group 
+                        p="md" 
+                        style={{ cursor: 'pointer' }}
+                        onClick={(e) => toggleTopic(e, topic.id)}
+                      >
+                        <Group gap="sm">
+                          {expandedTopics.has(topic.id) ? (
+                            <IconChevronDown size={20} />
+                          ) : (
+                            <IconChevronRight size={20} />
+                          )}
+                          <ThemeIcon 
+                            color={topic.completed ? 'green' : 'blue'} 
+                            variant="light"
+                            size="lg"
+                          >
+                            {topic.completed ? <IconCircleCheck size={20} /> : <IconMap size={20} />}
+                          </ThemeIcon>
+                        </Group>
                         <div style={{ flex: 1 }}>
                           <Text fw={500}>{topic.title}</Text>
                           <Text size="sm" c="dimmed">
@@ -230,34 +253,44 @@ const Progress = () => {
                           {Math.round((topic.subtopics.filter(st => st.completed).length / topic.subtopics.length) * 100)}%
                         </Badge>
                       </Group>
-                    </Accordion.Control>
-                    <Accordion.Panel>
-                      <Stack gap="xs">
-                        {topic.subtopics.map(subtopic => (
-                          <Group key={subtopic.id} justify="space-between">
-                            <Checkbox
-                              label={subtopic.title}
-                              checked={subtopic.completed}
-                              onChange={() => handleSubtopicToggle(topic.id, subtopic.id)}
-                              styles={{
-                                label: {
-                                  textDecoration: subtopic.completed ? 'line-through' : 'none',
-                                  color: subtopic.completed ? 'var(--mantine-color-dimmed)' : undefined,
-                                },
-                              }}
-                            />
-                            {subtopic.completed && (
-                              <ThemeIcon color="green" variant="light">
-                                <IconCheck size={16} />
-                              </ThemeIcon>
-                            )}
-                          </Group>
-                        ))}
-                      </Stack>
-                    </Accordion.Panel>
-                  </Accordion.Item>
+
+                      {expandedTopics.has(topic.id) && (
+                        <Stack gap="xs" p="md" pt={0}>
+                          {topic.subtopics.map(subtopic => (
+                            <Group key={subtopic.id} justify="space-between" onClick={(e) => e.stopPropagation()}>
+                              <Box style={{ flex: 1 }} onClick={(e) => e.stopPropagation()}>
+                                <Checkbox
+                                  label={subtopic.title}
+                                  checked={subtopic.completed}
+                                  onChange={(e) => {
+                                    e.stopPropagation();
+                                    handleSubtopicToggle(topic.id, subtopic.id);
+                                  }}
+                                  styles={{
+                                    label: {
+                                      textDecoration: subtopic.completed ? 'line-through' : 'none',
+                                      color: subtopic.completed ? 'var(--mantine-color-dimmed)' : undefined,
+                                      cursor: 'pointer',
+                                    },
+                                    input: {
+                                      cursor: 'pointer',
+                                    },
+                                  }}
+                                />
+                              </Box>
+                              {subtopic.completed && (
+                                <ThemeIcon color="green" variant="light">
+                                  <IconCheck size={16} />
+                                </ThemeIcon>
+                              )}
+                            </Group>
+                          ))}
+                        </Stack>
+                      )}
+                    </Box>
+                  </Paper>
                 ))}
-              </Accordion>
+              </Stack>
             </Stack>
           </Paper>
         )}
