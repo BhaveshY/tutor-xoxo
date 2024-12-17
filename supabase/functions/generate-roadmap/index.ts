@@ -1,5 +1,5 @@
-import { createClient } from "@supabase/supabase-js";
-import { Configuration, OpenAIApi } from "openai";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import OpenAI from "https://esm.sh/openai@4.12.4";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -38,13 +38,12 @@ Deno.serve(async (req) => {
     }
 
     // Initialize OpenAI
-    const configuration = new Configuration({
+    const openai = new OpenAI({
       apiKey: Deno.env.get('OPENAI_API_KEY'),
     });
-    const openai = new OpenAIApi(configuration);
 
     // Generate roadmap using GPT-4
-    const completion = await openai.createChatCompletion({
+    const completion = await openai.chat.completions.create({
       model: 'gpt-4',
       messages: [
         {
@@ -66,7 +65,7 @@ Deno.serve(async (req) => {
       temperature: 0.7,
     });
 
-    const response = completion.data.choices[0]?.message?.content || 'No roadmap generated';
+    const response = completion.choices[0]?.message?.content || 'No roadmap generated';
 
     return new Response(
       JSON.stringify({

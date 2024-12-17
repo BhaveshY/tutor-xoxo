@@ -11,7 +11,7 @@ import {
   Paper,
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import useStore from '../store/useStore.ts';
+import useStore from '../../tutorgpt/src/store/useStore.ts';
 
 const Login = () => {
   const navigate = useNavigate();
