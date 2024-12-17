@@ -1,6 +1,6 @@
 import React, { ReactNode } from 'react';
 import { AppShell, Burger, Group, Text, Button, Stack } from '@mantine/core';
-import { IconBook, IconRoad, IconBrain, IconLogout } from '@tabler/icons-react';
+import { IconBook, IconRoad, IconBrain, IconLogout, IconProgress } from '@tabler/icons-react';
 import { useNavigate } from 'react-router-dom';
 import useStore from '../store/useStore.ts';
 
@@ -62,6 +62,13 @@ const Layout = ({ children }: LayoutProps) => {
             onClick={() => setCurrentMode('practice')}
           >
             Practice Questions
+          </Button>
+          <Button
+            variant={currentMode === 'progress' ? 'filled' : 'light'}
+            leftSection={<IconProgress size={20} />}
+            onClick={() => setCurrentMode('progress')}
+          >
+            Learning Progress
           </Button>
         </Stack>
       </AppShell.Navbar>

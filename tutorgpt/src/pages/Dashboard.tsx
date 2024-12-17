@@ -39,6 +39,7 @@ import {
   IconX,
 } from '@tabler/icons-react';
 import '../styles/markdown.css';
+import Progress from './Progress.tsx';
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -83,15 +84,14 @@ interface PracticeStats {
 }
 
 const Dashboard = () => {
-  const { currentMode, user } = useStore();
+  const { currentMode, user, addRoadmap, roadmaps } = useStore();
   const [userInput, setUserInput] = useState('');
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [savedQuestions, setSavedQuestions] = useState<SavedQuestion[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedSubject, setSelectedSubject] = useState<string | null>(null);
-  const [roadmaps, setRoadmaps] = useState<SavedRoadmap[]>([]);
-  const [practiceQuestions, setPracticeQuestions] = useState<PracticeQuestion[]>([]);
   const [selectedRoadmap, setSelectedRoadmap] = useState<SavedRoadmap | null>(null);
+  const [practiceQuestions, setPracticeQuestions] = useState<PracticeQuestion[]>([]);
   const [showExplanation, setShowExplanation] = useState<Record<string, boolean>>({});
   const chatBoxRef = useRef<HTMLDivElement>(null);
   const [practiceStats, setPracticeStats] = useState<PracticeStats>({
@@ -226,7 +226,7 @@ const Dashboard = () => {
         timestamp: new Date(),
       };
 
-      setRoadmaps(prev => [newRoadmap, ...prev]);
+      addRoadmap(newRoadmap);
       setSelectedRoadmap(newRoadmap);
       setUserInput('');
 
@@ -493,7 +493,6 @@ const Dashboard = () => {
                       color="red" 
                       size="sm"
                       onClick={() => {
-                        setRoadmaps(prev => prev.filter(r => r.id !== selectedRoadmap.id));
                         setSelectedRoadmap(null);
                         notifications.show({
                           title: 'Success',
@@ -802,6 +801,7 @@ const Dashboard = () => {
       {currentMode === 'tutor' && renderTutorMode()}
       {currentMode === 'roadmap' && renderRoadmapMode()}
       {currentMode === 'practice' && renderPracticeMode()}
+      {currentMode === 'progress' && <Progress />}
     </Container>
   );
 };

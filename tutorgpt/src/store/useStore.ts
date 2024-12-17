@@ -1,57 +1,76 @@
 import { create } from 'zustand';
-import { createJSONStorage, persist } from 'zustand/middleware';
+import { persist } from 'zustand/middleware';
 import { supabase } from '../lib/supabaseClient.ts';
 
-interface UserProfile {
+interface User {
   id: string;
-  email: string;
   name: string;
-  interests: string[];
-  education: string;
+  email: string;
 }
 
-interface StoreState {
-  user: UserProfile | null;
-  currentMode: 'tutor' | 'roadmap' | 'practice';
+interface SavedRoadmap {
+  id: string;
+  title: string;
+  content: string;
+  timestamp: Date;
+}
+
+interface RoadmapProgress {
+  roadmapId: string;
+  topics: {
+    id: string;
+    subtopics: {
+      id: string;
+      completed: boolean;
+    }[];
+  }[];
+  lastUpdated: Date;
+}
+
+interface Store {
+  user: User | null;
+  currentMode: 'tutor' | 'roadmap' | 'practice' | 'progress';
+  roadmaps: SavedRoadmap[];
+  progress: RoadmapProgress[];
   isLoading: boolean;
   emailConfirmationSent: boolean;
-  setCurrentMode: (mode: 'tutor' | 'roadmap' | 'practice') => void;
-  setUser: (user: UserProfile) => Promise<void>;
+  setUser: (user: User | null) => void;
+  setCurrentMode: (mode: 'tutor' | 'roadmap' | 'practice' | 'progress') => void;
+  addRoadmap: (roadmap: SavedRoadmap) => void;
+  removeRoadmap: (id: string) => void;
+  updateProgress: (progress: RoadmapProgress) => void;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, name: string) => Promise<void>;
   signOut: () => Promise<void>;
 }
 
-const createUserData = (session: any) => ({
-  id: session.user.id,
-  email: session.user.email ?? '',
-  name: (session.user.user_metadata?.name || session.user.email) ?? '',
-  interests: session.user.user_metadata?.interests ?? [],
-  education: session.user.user_metadata?.education ?? ''
-});
-
-const useStore = create<StoreState>()(
+const useStore = create<Store>()(
   persist(
     (set) => ({
       user: null,
       currentMode: 'tutor',
+      roadmaps: [],
+      progress: [],
       isLoading: false,
       emailConfirmationSent: false,
-
+      setUser: (user) => set({ user }),
       setCurrentMode: (mode) => set({ currentMode: mode }),
-
-      setUser: async (user) => {
-        const { error } = await supabase.auth.updateUser({
-          data: {
-            name: user.name,
-            interests: user.interests,
-            education: user.education
-          }
-        });
-        if (error) throw error;
-        set({ user });
-      },
-
+      addRoadmap: (roadmap) =>
+        set((state) => ({
+          roadmaps: [roadmap, ...state.roadmaps],
+        })),
+      removeRoadmap: (id) =>
+        set((state) => ({
+          roadmaps: state.roadmaps.filter((r) => r.id !== id),
+          progress: state.progress.filter((p) => p.roadmapId !== id),
+        })),
+      updateProgress: (progress) =>
+        set((state) => ({
+          progress: [
+            ...state.progress.filter((p) => p.roadmapId !== progress.roadmapId),
+            progress,
+          ],
+        })),
       signIn: async (email, password) => {
         set({ isLoading: true });
         try {
@@ -61,54 +80,53 @@ const useStore = create<StoreState>()(
           });
           if (error) throw error;
           if (session) {
-            set({ user: createUserData(session), isLoading: false });
+            set({
+              user: {
+                id: session.user.id,
+                email: session.user.email ?? '',
+                name: session.user.user_metadata?.name || session.user.email || '',
+              },
+              isLoading: false,
+            });
           }
         } catch (error) {
           set({ isLoading: false });
           throw error;
         }
       },
-
       signUp: async (email, password, name) => {
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            data: { name }
-          }
-        });
-        if (error) throw error;
-        set({ emailConfirmationSent: true });
+        set({ isLoading: true });
+        try {
+          const { error } = await supabase.auth.signUp({
+            email,
+            password,
+            options: {
+              data: { name },
+            },
+          });
+          if (error) throw error;
+          set({ emailConfirmationSent: true, isLoading: false });
+        } catch (error) {
+          set({ isLoading: false });
+          throw error;
+        }
       },
-
       signOut: async () => {
-        await supabase.auth.signOut();
+        const { error } = await supabase.auth.signOut();
+        if (error) throw error;
         set({ user: null });
       },
     }),
     {
-      name: 'tutorgpt-store',
-      storage: createJSONStorage(() => localStorage),
+      name: 'tutorgpt-storage',
       partialize: (state) => ({
         user: state.user,
-        currentMode: state.currentMode
-      })
+        currentMode: state.currentMode,
+        roadmaps: state.roadmaps,
+        progress: state.progress,
+      }),
     }
   )
 );
-
-// Initialize auth state
-supabase.auth.getSession().then(({ data: { session } }) => {
-  if (session) {
-    useStore.setState({ user: createUserData(session) });
-  }
-});
-
-// Listen for auth changes
-supabase.auth.onAuthStateChange((_event, session) => {
-  if (session) {
-    useStore.setState({ user: createUserData(session) });
-  }
-});
 
 export default useStore; 
