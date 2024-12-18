@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts"
 import { OpenAI } from "https://esm.sh/openai@4.28.0"
+import { XAIClient } from "../_shared/xai.ts"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -41,20 +42,21 @@ Remember to:
 - Address misconceptions directly
 - Use markdown formatting for better readability`;
 
+// Initialize clients
+const openai = new OpenAI({ apiKey: Deno.env.get('OPENAI_API_KEY') || '' });
+const xai = new XAIClient(Deno.env.get('XAI_API_KEY') || '');
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
 
   try {
-    const { prompt, chatHistory = [], subject = 'General' } = await req.json()
+    const { prompt, chatHistory = [], subject = 'General', provider = 'openai' } = await req.json()
     if (!prompt) {
       throw new Error('Prompt is required')
     }
 
-    const openai = new OpenAI({ apiKey: Deno.env.get('OPENAI_API_KEY') })
-
-    // Convert chat history to OpenAI message format
     const messages = [
       { 
         role: 'system', 
@@ -67,14 +69,25 @@ serve(async (req) => {
       { role: 'user', content: prompt },
     ]
 
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4',
-      messages,
-      temperature: 0.7,
-      max_tokens: 1000,
-    })
+    let content: string | null = null;
 
-    const content = completion.choices[0]?.message?.content
+    if (provider === 'xai') {
+      const completion = await xai.createCompletion({
+        messages,
+        temperature: 0.7,
+        max_tokens: 1000
+      });
+      content = completion.choices[0]?.message?.content || null;
+    } else {
+      const completion = await openai.chat.completions.create({
+        model: 'gpt-4',
+        messages,
+        temperature: 0.7,
+        max_tokens: 1000,
+      });
+      content = completion.choices[0]?.message?.content || null;
+    }
+
     if (!content) {
       throw new Error('No response generated')
     }

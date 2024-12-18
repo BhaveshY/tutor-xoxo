@@ -13,6 +13,7 @@ export interface ChatMessage {
   user_id: string;
   message: string;
   is_user: boolean;
+  provider?: string;
   created_at: string;
 }
 
@@ -33,6 +34,7 @@ export interface LearningRoadmap {
   user_id: string;
   title: string;
   content: string;
+  provider?: string;
   created_at: string;
   updated_at: string;
 }

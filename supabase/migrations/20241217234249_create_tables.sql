@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS chat_history (
   user_id UUID REFERENCES profiles(id) ON DELETE CASCADE NOT NULL,
   message TEXT NOT NULL,
   is_user BOOLEAN NOT NULL,
+  provider VARCHAR(50),
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -25,6 +26,7 @@ CREATE TABLE IF NOT EXISTS practice_sessions (
   question TEXT NOT NULL,
   answer TEXT,
   score INTEGER,
+  provider VARCHAR(50),
   created_at TIMESTAMPTZ DEFAULT NOW(),
   completed_at TIMESTAMPTZ
 );
@@ -35,6 +37,7 @@ CREATE TABLE IF NOT EXISTS learning_roadmaps (
   user_id UUID REFERENCES profiles(id) ON DELETE CASCADE NOT NULL,
   title TEXT NOT NULL,
   content TEXT NOT NULL,
+  provider VARCHAR(50),
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );

@@ -3,12 +3,14 @@ import { practiceService, PracticeDifficulty } from '../services/practiceService
 import { PracticeSession } from '../services/databaseService.ts';
 import { useAuth } from '../hooks/useAuth.ts';
 import { ErrorMessage } from './ErrorMessage.tsx';
+import { llmService, type LLMProvider } from '../services/llmService.ts';
 
 interface PracticeProps {
   className?: string;
+  provider: LLMProvider;
 }
 
-export const Practice: React.FC<PracticeProps> = ({ className }) => {
+export const Practice: React.FC<PracticeProps> = ({ className, provider }) => {
   const [subject, setSubject] = useState('');
   const [difficulty, setDifficulty] = useState<PracticeDifficulty>('medium');
   const [currentSession, setCurrentSession] = useState<PracticeSession | null>(null);
@@ -27,10 +29,11 @@ export const Practice: React.FC<PracticeProps> = ({ className }) => {
   }, [userId]);
 
   const loadPracticeHistory = async () => {
+    if (!userId) return;
     setIsLoadingHistory(true);
     setError(null);
     try {
-      const history = await practiceService.getPracticeHistory(userId!);
+      const history = await practiceService.getPracticeHistory(userId);
       setPracticeHistory(history);
     } catch (error) {
       console.error('Error loading practice history:', error);

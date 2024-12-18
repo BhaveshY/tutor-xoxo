@@ -5,12 +5,15 @@ import { Roadmap } from '../components/Roadmap.tsx';
 import { useAuth } from '../hooks/useAuth.ts';
 import { Navigate } from 'react-router-dom';
 import { supabase } from '../services/supabaseClient.ts';
+import { LLMSelector, type LLMProvider } from '../components/LLMSelector.tsx';
+import { Group } from '@mantine/core';
 
 type Tab = 'chat' | 'practice' | 'roadmap';
 
 export const Dashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState<Tab>('chat');
   const { session, loading } = useAuth();
+  const [provider, setProvider] = useState<LLMProvider>('openai');
 
   const handleSignOut = async () => {
     try {
@@ -35,11 +38,11 @@ export const Dashboard: React.FC = () => {
   const renderTab = () => {
     switch (activeTab) {
       case 'chat':
-        return <Chat className="h-[calc(100vh-8rem)]" />;
+        return <Chat className="h-[calc(100vh-8rem)]" provider={provider} />;
       case 'practice':
-        return <Practice className="max-w-3xl mx-auto py-6 px-4" />;
+        return <Practice className="max-w-3xl mx-auto py-6 px-4" provider={provider} />;
       case 'roadmap':
-        return <Roadmap className="max-w-3xl mx-auto py-6 px-4" />;
+        return <Roadmap className="max-w-3xl mx-auto py-6 px-4" provider={provider} />;
       default:
         return null;
     }
@@ -85,7 +88,8 @@ export const Dashboard: React.FC = () => {
               </div>
             </div>
             <div className="flex items-center">
-              <span className="text-gray-700 mr-4">
+              <LLMSelector value={provider} onChange={setProvider} />
+              <span className="text-gray-700 mx-4">
                 {session.user.email}
               </span>
               <button

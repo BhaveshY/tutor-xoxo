@@ -4,12 +4,14 @@ import { databaseService, LearningRoadmap } from '../services/databaseService.ts
 import { useAuth } from '../hooks/useAuth.ts';
 import { ErrorMessage } from './ErrorMessage.tsx';
 import ReactMarkdown from 'react-markdown';
+import { LLMProvider } from "./LLMSelector.tsx";
 
 interface RoadmapProps {
   className?: string;
+  provider: LLMProvider;
 }
 
-export const Roadmap: React.FC<RoadmapProps> = ({ className }) => {
+export const Roadmap: React.FC<RoadmapProps> = ({ className, provider }) => {
   const [topic, setTopic] = useState('');
   const [roadmaps, setRoadmaps] = useState<LearningRoadmap[]>([]);
   const [isLoading, setIsLoading] = useState(false);
