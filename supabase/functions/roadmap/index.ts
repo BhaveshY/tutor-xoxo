@@ -16,7 +16,23 @@ serve(async (req: Request) => {
 
     const systemMessage = {
       role: 'system' as const,
-      content: 'You are an expert in creating learning roadmaps. Create a detailed, structured learning path that helps students achieve their educational goals efficiently.'
+      content: `You are an expert in creating learning roadmaps. Create a detailed, structured learning path that helps students achieve their educational goals efficiently.
+
+Format your response exactly as follows:
+1. Each major milestone should start with "## Milestone: " followed by the milestone title
+2. Under each milestone, list the tasks/subtopics starting with "- " 
+3. Keep the tasks actionable and specific
+
+Example format:
+## Milestone: Foundation Concepts
+- Learn basic syntax and data types
+- Practice writing simple programs
+- Complete introductory exercises
+
+## Milestone: Intermediate Topics
+- Study control structures
+- Implement basic algorithms
+- Build small projects`
     };
 
     const messages = [systemMessage, { role: 'user' as const, content: prompt }];

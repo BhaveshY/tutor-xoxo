@@ -4,10 +4,13 @@ import { LLMSelector } from '../components/LLMSelector.tsx';
 import type { LLMProvider } from '../services/llmService.ts';
 import useStore from '../store/useStore.ts';
 import { llmService } from '../services/llmService.ts';
+import { databaseService } from '../services/databaseService.ts';
+import type { LearningRoadmap } from '../services/databaseService.ts';
 import { notifications } from '@mantine/notifications';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import Progress from './Progress.tsx';
+import type { RoadmapTopic } from '../types/roadmap.ts';
 import {
   Container,
   Paper,
@@ -73,6 +76,8 @@ interface SavedRoadmap {
   title: string;
   content: string;
   timestamp: Date;
+  topics: RoadmapTopic[];
+  progress: number;
 }
 
 interface PracticeStats {
@@ -82,33 +87,7 @@ interface PracticeStats {
   streak: number;
 }
 
-interface RoadmapTopic {
-  id: string;
-  title: string;
-  subtopics: {
-    id: string;
-    title: string;
-    completed: boolean;
-  }[];
-  completed: boolean;
-}
-
-interface Roadmap {
-  id: string;
-  title: string;
-  topics: RoadmapTopic[];
-  content: string;
-  progress: number;
-  timestamp: Date;
-}
-
-// Add type for roadmap
-interface RoadmapItem {
-  id: string;
-  title: string;
-  content: string;
-  timestamp: Date;
-}
+type RoadmapItem = SavedRoadmap;
 
 const parseRoadmapContent = (content: string): RoadmapTopic[] => {
   const lines = content.split('\n');
@@ -158,7 +137,7 @@ const getModelLabel = (model: LLMProvider): string => {
 };
 
 const Dashboard = () => {
-  const { currentMode, user, addRoadmap, roadmaps } = useStore();
+  const { currentMode, user, addRoadmap, roadmaps, removeRoadmap, clearRoadmaps } = useStore();
   const [userInput, setUserInput] = useState('');
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [savedQuestions, setSavedQuestions] = useState<SavedQuestion[]>([]);
@@ -175,7 +154,38 @@ const Dashboard = () => {
     streak: 0,
   });
   const [selectedDifficulty, setSelectedDifficulty] = useState<string>('medium');
-  const [selectedModel, setSelectedModel] = useState<LLMProvider>('gpt-4-turbo-preview');
+  const [selectedModel, setSelectedModel] = useState<LLMProvider>('openai/gpt-4-turbo-preview');
+
+  // Load roadmaps when user logs in
+  useEffect(() => {
+    const loadRoadmaps = async () => {
+      if (!user?.id) return;
+      
+      try {
+        clearRoadmaps();
+        const roadmapsData = await databaseService.getRoadmaps(user.id);
+        roadmapsData.forEach(roadmap => {
+          addRoadmap({
+            id: roadmap.id,
+            title: roadmap.title,
+            content: roadmap.content,
+            timestamp: new Date(roadmap.created_at),
+            topics: [],
+            progress: 0
+          });
+        });
+      } catch (error) {
+        console.error('Error loading roadmaps:', error);
+        notifications.show({
+          title: 'Error',
+          message: 'Failed to load roadmaps',
+          color: 'red',
+        });
+      }
+    };
+
+    loadRoadmaps();
+  }, [user?.id, addRoadmap, clearRoadmaps]);
 
   useEffect(() => {
     if (chatBoxRef.current) {
@@ -419,6 +429,62 @@ const Dashboard = () => {
     }
   };
 
+  const handleSaveRoadmap = async () => {
+    try {
+      if (!user?.id) {
+        notifications.show({
+          title: 'Error',
+          message: 'You must be logged in to save a roadmap',
+          color: 'red',
+        });
+        return;
+      }
+
+      const newRoadmap: Omit<LearningRoadmap, 'id' | 'created_at' | 'updated_at'> = {
+        user_id: user.id,
+        title: `Learning Roadmap - ${selectedSubject}`,
+        content: chatHistory[chatHistory.length - 1].content,
+        provider: selectedModel
+      };
+      
+      const savedRoadmap = await databaseService.createRoadmap(newRoadmap);
+      
+      const roadmapWithTopics: SavedRoadmap = {
+        id: savedRoadmap.id,
+        title: savedRoadmap.title,
+        content: savedRoadmap.content,
+        timestamp: new Date(savedRoadmap.created_at),
+        topics: [],
+        progress: 0
+      };
+      
+      addRoadmap(roadmapWithTopics);
+      setSelectedRoadmap(roadmapWithTopics);
+      
+      notifications.show({
+        title: 'Success',
+        message: 'Roadmap saved successfully',
+        color: 'green',
+      });
+    } catch (error) {
+      console.error('Error saving roadmap:', error);
+      notifications.show({
+        title: 'Error',
+        message: 'Failed to save roadmap',
+        color: 'red',
+      });
+    }
+  };
+
+  const handleRoadmapClick = (roadmap: RoadmapItem) => {
+    const roadmapWithTopics: SavedRoadmap = {
+      ...roadmap,
+      topics: roadmap.topics || [],
+      progress: roadmap.progress || 0
+    };
+    setSelectedRoadmap(roadmapWithTopics);
+  };
+
   const renderTutorMode = () => (
     <Stack gap="lg">
       <MantineGroup justify="space-between" align="center">
@@ -603,13 +669,24 @@ const Dashboard = () => {
                       variant="light" 
                       color="red" 
                       size="sm"
-                      onClick={() => {
-                        setSelectedRoadmap(null);
-                        notifications.show({
-                          title: 'Success',
-                          message: 'Roadmap deleted successfully',
-                          color: 'green',
-                        });
+                      onClick={async () => {
+                        try {
+                          await databaseService.deleteRoadmap(selectedRoadmap.id);
+                          removeRoadmap(selectedRoadmap.id);
+                          setSelectedRoadmap(null);
+                          notifications.show({
+                            title: 'Success',
+                            message: 'Roadmap deleted successfully',
+                            color: 'green',
+                          });
+                        } catch (error) {
+                          console.error('Error deleting roadmap:', error);
+                          notifications.show({
+                            title: 'Error',
+                            message: 'Failed to delete roadmap',
+                            color: 'red',
+                          });
+                        }
                       }}
                     >
                       Delete
@@ -678,7 +755,7 @@ const Dashboard = () => {
                         cursor: 'pointer',
                         backgroundColor: selectedRoadmap?.id === roadmap.id ? 'var(--mantine-color-blue-light)' : undefined
                       }}
-                      onClick={() => setSelectedRoadmap(roadmap)}
+                      onClick={() => handleRoadmapClick(roadmap)}
                     >
                       <MantineGroup gap="xs">
                         <Text size="sm" fw={500} lineClamp={2}>
