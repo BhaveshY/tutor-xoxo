@@ -4,7 +4,7 @@ import { databaseService, LearningRoadmap } from '../services/databaseService.ts
 import { useAuth } from '../hooks/useAuth.ts';
 import { ErrorMessage } from './ErrorMessage.tsx';
 import ReactMarkdown from 'react-markdown';
-import { LLMProvider } from "./LLMSelector.tsx";
+import { LLMProvider } from "../services/llmService.ts";
 
 interface RoadmapProps {
   className?: string;
