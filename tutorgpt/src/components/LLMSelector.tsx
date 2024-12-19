@@ -7,12 +7,16 @@ interface LLMSelectorProps {
   onChange: (value: LLMProvider) => void;
 }
 
-const modelOptions = [
-  { value: 'gpt-4-turbo-preview', label: 'GPT-4 Turbo' },
-  { value: 'grok-2-1212', label: 'Grok-2' },
-  { value: 'claude-3-5-sonnet-20241022', label: 'Claude 3 Sonnet' },
-  { value: 'gemini-pro', label: 'Gemini Pro' }
-] as const;
+export const modelLabels: Record<LLMProvider, string> = {
+  'openai/gpt-4-turbo-preview': 'GPT-4 Turbo',
+  'groq/grok-2-1212': 'Grok-2',
+  'anthropic/claude-3-5-sonnet-20241022': 'Claude 3 Sonnet'
+};
+
+const modelOptions = Object.entries(modelLabels).map(([value, label]) => ({
+  value: value as LLMProvider,
+  label
+}));
 
 export const LLMSelector: React.FC<LLMSelectorProps> = ({ value, onChange }) => {
   return (

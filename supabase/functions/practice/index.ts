@@ -7,14 +7,6 @@ interface PracticeRequest {
   model: string;
 }
 
-interface APIResponse {
-  choices: Array<{
-    message: {
-      content: string;
-    };
-  }>;
-}
-
 serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -24,53 +16,59 @@ serve(async (req: Request) => {
     const {
       prompt,
       difficulty = 'medium',
-      model = 'gpt-4-turbo-preview'
+      model = 'openai/gpt-4-turbo-preview'
     } = await req.json() as PracticeRequest;
-
-    // Get the appropriate API key and base URL based on the model
-    let apiKey: string | undefined;
-    let apiBase: string;
-    
-    switch (model) {
-      case 'gpt-4-turbo-preview':
-        apiKey = Deno.env.get('OPENAI_API_KEY');
-        apiBase = 'https://api.openai.com/v1';
-        break;
-      case 'grok-2-1212':
-        apiKey = Deno.env.get('XAI_API_KEY');
-        apiBase = 'https://api.groq.com/openai/v1';
-        break;
-      case 'claude-3-5-sonnet-20241022':
-        apiKey = Deno.env.get('ANTHROPIC_API_KEY');
-        apiBase = 'https://api.anthropic.com/v1';
-        break;
-      case 'gemini-pro':
-        apiKey = Deno.env.get('GOOGLE_API_KEY');
-        apiBase = 'https://generativelanguage.googleapis.com/v1';
-        break;
-      default:
-        apiKey = Deno.env.get('OPENAI_API_KEY');
-        apiBase = 'https://api.openai.com/v1';
-    }
-
-    if (!apiKey) {
-      throw new Error(`API key not found for model ${model}`);
-    }
 
     const systemMessage = {
       role: 'system' as const,
       content: `You are an expert at creating practice questions. Generate ${difficulty} difficulty questions that help students master the concepts while maintaining an appropriate challenge level.`
     };
 
+    const messages = [systemMessage, { role: 'user' as const, content: prompt }];
+
+    // Get the appropriate API key and base URL based on the provider
+    const [provider] = model.split('/');
+    let apiKey: string | undefined;
+    let apiBase: string;
+    let modelName: string;
+    
+    switch (provider) {
+      case 'openai':
+        apiKey = Deno.env.get('OPENAI_API_KEY');
+        apiBase = 'https://api.openai.com/v1';
+        modelName = 'gpt-4-1106-preview';
+        break;
+      case 'groq':
+        apiKey = Deno.env.get('GROQ_API_KEY');
+        apiBase = 'https://api.groq.com/openai/v1';
+        modelName = 'mixtral-8x7b-32768';
+        break;
+      case 'anthropic':
+        apiKey = Deno.env.get('ANTHROPIC_API_KEY');
+        apiBase = 'https://api.anthropic.com/v1';
+        modelName = 'claude-3-sonnet-20240229';
+        break;
+      default:
+        apiKey = Deno.env.get('OPENAI_API_KEY');
+        apiBase = 'https://api.openai.com/v1';
+        modelName = 'gpt-4-1106-preview';
+    }
+
+    if (!apiKey) {
+      throw new Error(`API key not found for provider ${provider}`);
+    }
+
+    // Make request to provider's API directly
     const response = await fetch(`${apiBase}/chat/completions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${apiKey}`,
+        ...(provider === 'anthropic' ? { 'anthropic-version': '2023-06-01' } : {})
       },
       body: JSON.stringify({
-        model,
-        messages: [systemMessage, { role: 'user' as const, content: prompt }],
+        model: modelName,
+        messages,
         temperature: 0.7,
         max_tokens: 2000
       })
@@ -82,7 +80,7 @@ serve(async (req: Request) => {
       throw new Error(error.message || `API error: ${response.statusText}`);
     }
 
-    const result = await response.json() as APIResponse;
+    const result = await response.json();
     const aiResponse = {
       content: result.choices[0].message.content
     };

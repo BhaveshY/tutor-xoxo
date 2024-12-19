@@ -3,7 +3,10 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-export type LLMProvider = 'gpt-4-turbo-preview' | 'grok-2-1212' | 'claude-3-5-sonnet-20241022' | 'gemini-pro';
+export type LLMProvider = 
+  | 'openai/gpt-4-turbo-preview'
+  | 'groq/grok-2-1212'
+  | 'anthropic/claude-3-5-sonnet-20241022';
 
 interface LLMResponse {
   content: string;
@@ -24,7 +27,7 @@ type PracticeParams = {
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 export const llmService = {
-  generateTutorResponse: async (prompt: string, chatHistory: ChatMessage[] = [], provider: LLMProvider = 'gpt-4-turbo-preview'): Promise<LLMResponse> => {
+  generateTutorResponse: async (prompt: string, chatHistory: ChatMessage[] = [], provider: LLMProvider = 'openai/gpt-4-turbo-preview'): Promise<LLMResponse> => {
     try {
       const { data, error } = await supabase.functions.invoke<LLMResponse>('tutor', {
         body: { 
@@ -43,7 +46,7 @@ export const llmService = {
     }
   },
 
-  generateRoadmap: async (prompt: string, provider: LLMProvider = 'gpt-4-turbo-preview'): Promise<LLMResponse> => {
+  generateRoadmap: async (prompt: string, provider: LLMProvider = 'openai/gpt-4-turbo-preview'): Promise<LLMResponse> => {
     try {
       const { data, error } = await supabase.functions.invoke<LLMResponse>('roadmap', {
         body: { prompt, model: provider },
@@ -57,7 +60,7 @@ export const llmService = {
     }
   },
 
-  generatePracticeQuestions: async ({ prompt, difficulty, provider = 'gpt-4-turbo-preview' }: PracticeParams): Promise<LLMResponse> => {
+  generatePracticeQuestions: async ({ prompt, difficulty, provider = 'openai/gpt-4-turbo-preview' }: PracticeParams): Promise<LLMResponse> => {
     try {
       const { data, error } = await supabase.functions.invoke<{ content: string }>('practice', {
         body: { prompt, difficulty, model: provider },

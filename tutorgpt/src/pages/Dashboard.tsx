@@ -144,6 +144,19 @@ const parseRoadmapContent = (content: string): RoadmapTopic[] => {
   return topics;
 };
 
+const getModelLabel = (model: LLMProvider): string => {
+  switch (model) {
+    case 'openai/gpt-4-turbo-preview':
+      return 'GPT-4 Turbo';
+    case 'groq/grok-2-1212':
+      return 'Grok-2';
+    case 'anthropic/claude-3-5-sonnet-20241022':
+      return 'Claude 3 Sonnet';
+    default:
+      return 'Unknown Model';
+  }
+};
+
 const Dashboard = () => {
   const { currentMode, user, addRoadmap, roadmaps } = useStore();
   const [userInput, setUserInput] = useState('');
@@ -383,12 +396,7 @@ const Dashboard = () => {
     setSelectedModel(model);
     notifications.show({
       title: 'Model Changed',
-      message: `Switched to ${
-        model === 'gpt-4-turbo-preview' ? 'GPT-4 Turbo' : 
-        model === 'grok-2-1212' ? 'Grok-2' : 
-        model === 'claude-3-5-sonnet-20241022' ? 'Claude 3 Sonnet' : 
-        'Gemini Pro'
-      }`,
+      message: `Switched to ${getModelLabel(model)}`,
       color: 'blue',
     });
   };
