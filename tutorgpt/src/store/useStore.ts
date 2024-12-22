@@ -1,8 +1,9 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { devtools, persist } from 'zustand/middleware';
 import { supabase } from '../lib/supabaseClient.ts';
 import { EvolutionaryOptimizer, evolutionService } from '../services/evolutionService.ts';
 import { Roadmap, RoadmapMetrics, TopicMetrics } from '../types/roadmap.ts';
+import { calculateProgress, parseRoadmapContent, ProgressData } from '@/pages/Progress.tsx';
 
 interface User {
   id: string;
@@ -17,24 +18,28 @@ interface Store {
   progress: RoadmapMetrics[];
   isLoading: boolean;
   emailConfirmationSent: boolean;
-  
+  progressDataStore: any[];
+
+
+  updateProgressDataStore: (data: any) => void;
+
   // User management
   setUser: (user: User | null) => void;
   setCurrentMode: (mode: 'tutor' | 'roadmap' | 'practice' | 'progress') => void;
-  
+
   // Roadmap management
   addRoadmap: (roadmap: Roadmap) => void;
   removeRoadmap: (id: string) => void;
   updateProgress: (progress: RoadmapMetrics) => void;
   getProgress: (roadmapId: string) => RoadmapMetrics | undefined;
-  
+
   // Learning metrics
   updateTopicMetrics: (roadmapId: string, topicId: string, metrics: Partial<TopicMetrics>) => void;
   getTopicMetrics: (roadmapId: string, topicId: string) => TopicMetrics | undefined;
-  
+
   // Roadmap optimization
   optimizeRoadmap: (roadmapId: string) => void;
-  
+
   // Authentication
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, name: string) => Promise<void>;
@@ -42,7 +47,7 @@ interface Store {
 }
 
 const useStore = create<Store>()(
-  persist(
+  devtools(persist(
     (set, get) => ({
       user: null,
       currentMode: 'tutor',
@@ -50,6 +55,9 @@ const useStore = create<Store>()(
       progress: [],
       isLoading: false,
       emailConfirmationSent: false,
+      progressDataStore: [],
+
+      updateProgressDataStore: (data) => set({ progressDataStore: data }),
 
       setUser: (user) => set({ user }),
       setCurrentMode: (mode) => set({ currentMode: mode }),
@@ -57,6 +65,12 @@ const useStore = create<Store>()(
       addRoadmap: (roadmap) =>
         set((state) => ({
           roadmaps: [roadmap, ...state.roadmaps],
+          progressDataStore: [{
+            id: roadmap.id,
+            title: roadmap.title,
+            topics: parseRoadmapContent(roadmap.content),
+            progress: calculateProgress(parseRoadmapContent(roadmap.content)),
+          }, ...state.progressDataStore],
         })),
 
       removeRoadmap: (id) =>
@@ -94,7 +108,7 @@ const useStore = create<Store>()(
               consistencyScore: 0,
               retentionRate: 0,
             };
-            
+
             return {
               progress: [
                 ...state.progress,
@@ -133,8 +147,8 @@ const useStore = create<Store>()(
           // Update averageTimePerSubtopic
           if (newMetrics.timeSpent !== undefined) {
             const completedSubtopics = Object.values(updatedMetrics.subtopics).filter(s => s.completed).length;
-            updatedMetrics.averageTimePerSubtopic = completedSubtopics > 0 
-              ? updatedMetrics.timeSpent / completedSubtopics 
+            updatedMetrics.averageTimePerSubtopic = completedSubtopics > 0
+              ? updatedMetrics.timeSpent / completedSubtopics
               : updatedMetrics.timeSpent;
           }
 
@@ -173,7 +187,7 @@ const useStore = create<Store>()(
         set((state) => {
           const roadmap = state.roadmaps.find(r => r.id === roadmapId);
           const progress = state.progress.find(p => p.roadmapId === roadmapId);
-          
+
           if (!roadmap || !progress) return state;
 
           const performances = roadmap.topics.map(topic => ({
@@ -272,6 +286,7 @@ const useStore = create<Store>()(
         currentMode: state.currentMode,
         roadmaps: state.roadmaps,
         progress: state.progress,
+        progressDataStore: state.progressDataStore,
       }),
       storage: {
         getItem: (name) => {
@@ -303,7 +318,7 @@ const useStore = create<Store>()(
         removeItem: (name) => localStorage.removeItem(name),
       },
     }
-  )
+  ))
 );
 
 export default useStore; 
