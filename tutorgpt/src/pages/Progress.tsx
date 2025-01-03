@@ -221,9 +221,34 @@ const Progress = () => {
       // Update progress in store
       const updatedRoadmap = updatedData.find((d) => d.id === selectedRoadmap);
       if (updatedRoadmap) {
+        const existingProgress = getProgress(selectedRoadmap);
+        const timeSpent = startTimes[`${topicId}-${subtopicId}`] 
+          ? Date.now() - startTimes[`${topicId}-${subtopicId}`] 
+          : 0;
+
+        const existingTopicMetrics = existingProgress?.topicMetrics || {};
+        const updatedTopicMetrics: Record<string, TopicMetrics> = {
+          ...existingTopicMetrics,
+          [topicId]: {
+            timeSpent: existingTopicMetrics[topicId]?.timeSpent || 0,
+            attempts: (existingTopicMetrics[topicId]?.attempts || 0) + 1,
+            successRate: existingTopicMetrics[topicId]?.successRate || 0,
+            difficulty: existingTopicMetrics[topicId]?.difficulty || 0.5,
+            lastAttempt: new Date(),
+            lastAttemptTimestamp: Date.now(),
+            averageTimePerSubtopic: existingTopicMetrics[topicId]?.averageTimePerSubtopic || 0,
+            consistencyScore: existingTopicMetrics[topicId]?.consistencyScore || 0,
+            retentionRate: existingTopicMetrics[topicId]?.retentionRate || 0,
+            subtopics: {
+              ...existingTopicMetrics[topicId]?.subtopics || {},
+              [subtopicId]: { completed: !existingTopicMetrics[topicId]?.subtopics[subtopicId]?.completed }
+            }
+          }
+        };
+
         updateProgress({
           roadmapId: selectedRoadmap,
-          topicMetrics: {},
+          topicMetrics: updatedTopicMetrics,
           lastUpdated: new Date(),
         });
       }

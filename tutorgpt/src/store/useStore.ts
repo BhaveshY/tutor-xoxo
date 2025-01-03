@@ -30,6 +30,7 @@ interface Store {
   // Roadmap management
   addRoadmap: (roadmap: Roadmap) => void;
   removeRoadmap: (id: string) => void;
+  clearRoadmaps: () => void;
   updateProgress: (progress: RoadmapMetrics) => void;
   getProgress: (roadmapId: string) => RoadmapMetrics | undefined;
 
@@ -78,6 +79,12 @@ const useStore = create<Store>()(
           roadmaps: state.roadmaps.filter((r) => r.id !== id),
           progress: state.progress.filter((p) => p.roadmapId !== id),
           progressDataStore: state.progressDataStore.filter(p => p.id !== id)
+        })),
+
+      clearRoadmaps: () =>
+        set((state) => ({
+          roadmaps: [],
+          progress: [],
         })),
 
       updateProgress: (progress) =>

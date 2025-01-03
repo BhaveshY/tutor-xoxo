@@ -1,6 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 import { databaseService } from './databaseService.ts';
 
+export type LLMProvider = 'openai' | 'xai';
+
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
@@ -30,7 +32,7 @@ type PracticeParams = {
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 export const llmService = {
-  generateTutorResponse: async (userId: string, prompt: string): Promise<LLMResponse> => {
+  generateTutorResponse: async (userId: string, prompt: string, provider: LLMProvider = 'openai'): Promise<LLMResponse> => {
     try {
       // First, save the user's message
       await databaseService.saveChatMessage({
@@ -39,9 +41,9 @@ export const llmService = {
         is_user: true
       });
 
-      // Get response from LLM
+      // Get response from selected LLM
       const { data, error } = await supabase.functions.invoke('tutor', {
-        body: { prompt },
+        body: { prompt, provider },
       });
 
       if (error) throw error;
@@ -50,7 +52,8 @@ export const llmService = {
       await databaseService.saveChatMessage({
         user_id: userId,
         message: data.content,
-        is_user: false
+        is_user: false,
+        provider // Store which provider generated the response
       });
 
       return data;
@@ -60,10 +63,10 @@ export const llmService = {
     }
   },
 
-  generateRoadmap: async (userId: string, prompt: string): Promise<LLMResponse> => {
+  generateRoadmap: async (userId: string, prompt: string, provider: LLMProvider = 'openai'): Promise<LLMResponse> => {
     try {
       const { data, error } = await supabase.functions.invoke('roadmap', {
-        body: { prompt },
+        body: { prompt, provider },
       });
 
       if (error) throw error;
@@ -73,7 +76,8 @@ export const llmService = {
         await databaseService.createRoadmap({
           user_id: userId,
           title: prompt,
-          content: data.content
+          content: data.content,
+          provider // Store which provider generated the roadmap
         });
       }
 

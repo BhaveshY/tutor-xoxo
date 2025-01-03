@@ -1,0 +1,28 @@
+model_list:
+  - model_name: openai/gpt-4-turbo-preview
+    litellm_params:
+      model: gpt-4-1106-preview
+      api_key: ${OPENAI_API_KEY}
+      api_base: https://api.openai.com/v1
+
+  - model_name: groq/grok-2-1212
+    litellm_params:
+      model: mixtral-8x7b-32768
+      api_key: ${GROQ_API_KEY}
+      api_base: https://api.groq.com/openai/v1
+
+  - model_name: anthropic/claude-3-5-sonnet-20241022
+    litellm_params:
+      model: claude-3-sonnet-20240229
+      api_key: ${ANTHROPIC_API_KEY}
+      api_base: https://api.anthropic.com/v1
+
+environment_variables:
+  OPENAI_API_KEY: ${OPENAI_API_KEY}
+  GROQ_API_KEY: ${GROQ_API_KEY}
+  ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+
+litellm_settings:
+  drop_params: False
+  set_verbose: True
+  model_list: True

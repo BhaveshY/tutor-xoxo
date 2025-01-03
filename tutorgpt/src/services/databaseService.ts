@@ -1,4 +1,4 @@
-import { supabase } from './supabaseClient.ts';
+import { supabase } from '../lib/supabaseClient.ts';
 
 export interface Profile {
   id: string;
@@ -13,6 +13,7 @@ export interface ChatMessage {
   user_id: string;
   message: string;
   is_user: boolean;
+  provider?: string;
   created_at: string;
 }
 
@@ -33,6 +34,7 @@ export interface LearningRoadmap {
   user_id: string;
   title: string;
   content: string;
+  provider?: string;
   created_at: string;
   updated_at: string;
 }
@@ -164,5 +166,14 @@ export const databaseService = {
 
     if (error) throw error;
     return data;
+  },
+
+  deleteRoadmap: async (roadmapId: string): Promise<void> => {
+    const { error } = await supabase
+      .from('learning_roadmaps')
+      .delete()
+      .eq('id', roadmapId);
+
+    if (error) throw error;
   }
 }; 

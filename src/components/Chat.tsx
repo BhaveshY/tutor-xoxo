@@ -1,14 +1,15 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { llmService } from '../services/llmService.ts';
+import { llmService, type LLMProvider } from '../services/llmService.ts';
 import { ChatMessage } from '../services/databaseService.ts';
 import { useAuth } from '../hooks/useAuth.ts';
 import { ErrorMessage } from './ErrorMessage.tsx';
 
 interface ChatProps {
   className?: string;
+  provider: LLMProvider;
 }
 
-export const Chat: React.FC<ChatProps> = ({ className }) => {
+export const Chat: React.FC<ChatProps> = ({ className, provider }) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -33,10 +34,11 @@ export const Chat: React.FC<ChatProps> = ({ className }) => {
   };
 
   const loadChatHistory = async () => {
+    if (!userId) return;
     setIsLoadingHistory(true);
     setError(null);
     try {
-      const history = await llmService.getChatHistory(userId!);
+      const history = await llmService.getChatHistory(userId);
       setMessages(history);
     } catch (error) {
       console.error('Error loading chat history:', error);

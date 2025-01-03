@@ -1,115 +1,111 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import { OpenAI } from 'https://esm.sh/openai@4.28.0';
 import { corsHeaders } from '../_shared/cors.ts';
 
-const openai = new OpenAI({
-  apiKey: Deno.env.get('OPENAI_API_KEY'),
-});
+interface RoadmapRequest {
+  prompt: string;
+  model: string;
+}
 
-const SYSTEM_PROMPT = `You are an expert educational consultant who creates personalized learning roadmaps. 
-Your task is to create a detailed, structured learning roadmap based on the user's goals and current level.
-
-Follow these guidelines:
-1. Start with a brief overview of the learning journey
-2. Break down the roadmap into clear milestones
-3. For each milestone:
-   - Specify clear learning objectives
-   - Recommend specific resources (books, courses, tutorials)
-   - Include practice exercises or projects
-   - Estimate time requirements
-4. Add checkpoints for progress assessment
-5. Include tips for maintaining motivation
-6. Format the response in clear Markdown with proper headings and sections
-
-Use this structure:
-# Learning Roadmap: [Topic]
-
-## Overview
-[Brief description of the learning journey]
-
-## Prerequisites
-[List any required background knowledge]
-
-## Milestone 1: [Title]
-### Learning Objectives
-- [Objective 1]
-- [Objective 2]
-
-### Resources
-- [Resource 1]
-- [Resource 2]
-
-### Practice
-- [Exercise/Project 1]
-- [Exercise/Project 2]
-
-[Continue with more milestones...]
-
-## Assessment Checkpoints
-[List of ways to verify progress]
-
-## Tips for Success
-[Motivational and practical tips]`;
-
-serve(async (req) => {
+serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { 
-      headers: {
-        ...corsHeaders,
-        'Content-Type': 'application/json',
-      },
-      status: 200,
-    });
+    return new Response('ok', { headers: corsHeaders });
   }
 
   try {
-    const { prompt } = await req.json();
+    const { prompt, model = 'openai/gpt-4-turbo-preview' } = await req.json() as RoadmapRequest;
 
-    if (!prompt) {
-      return new Response(
-        JSON.stringify({ error: 'Prompt is required' }),
-        {
-          status: 400,
-          headers: {
-            ...corsHeaders,
-            'Content-Type': 'application/json',
-          },
-        }
-      );
+    const systemMessage = {
+      role: 'system' as const,
+      content: `You are an expert in creating learning roadmaps. Create a detailed, structured learning path that helps students achieve their educational goals efficiently.
+
+Format your response exactly as follows:
+1. Each major milestone should start with "## Milestone: " followed by the milestone title
+2. Under each milestone, list the tasks/subtopics starting with "- " 
+3. Keep the tasks actionable and specific
+
+Example format:
+## Milestone: Foundation Concepts
+- Learn basic syntax and data types
+- Practice writing simple programs
+- Complete introductory exercises
+
+## Milestone: Intermediate Topics
+- Study control structures
+- Implement basic algorithms
+- Build small projects`
+    };
+
+    const messages = [systemMessage, { role: 'user' as const, content: prompt }];
+
+    // Get the appropriate API key and base URL based on the provider
+    const [provider] = model.split('/');
+    let apiKey: string | undefined;
+    let apiBase: string;
+    let modelName: string;
+    
+    switch (provider) {
+      case 'openai':
+        apiKey = Deno.env.get('OPENAI_API_KEY');
+        apiBase = 'https://api.openai.com/v1';
+        modelName = 'gpt-4-1106-preview';
+        break;
+      case 'groq':
+        apiKey = Deno.env.get('GROQ_API_KEY');
+        apiBase = 'https://api.groq.com/openai/v1';
+        modelName = 'mixtral-8x7b-32768';
+        break;
+      case 'anthropic':
+        apiKey = Deno.env.get('ANTHROPIC_API_KEY');
+        apiBase = 'https://api.anthropic.com/v1';
+        modelName = 'claude-3-sonnet-20240229';
+        break;
+      default:
+        apiKey = Deno.env.get('OPENAI_API_KEY');
+        apiBase = 'https://api.openai.com/v1';
+        modelName = 'gpt-4-1106-preview';
     }
 
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4',
-      messages: [
-        { role: 'system', content: SYSTEM_PROMPT },
-        { role: 'user', content: prompt },
-      ],
-      temperature: 0.7,
-      max_tokens: 2000,
+    if (!apiKey) {
+      throw new Error(`API key not found for provider ${provider}`);
+    }
+
+    // Make request to provider's API directly
+    const response = await fetch(`${apiBase}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+        ...(provider === 'anthropic' ? { 'anthropic-version': '2023-06-01' } : {})
+      },
+      body: JSON.stringify({
+        model: modelName,
+        messages,
+        temperature: 0.7,
+        max_tokens: 2000
+      })
     });
 
-    const content = completion.choices[0]?.message?.content || '';
+    if (!response.ok) {
+      const error = await response.json();
+      console.error('API error response:', error);
+      throw new Error(error.message || `API error: ${response.statusText}`);
+    }
 
-    return new Response(
-      JSON.stringify({ content }),
-      {
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'application/json',
-        },
-      }
-    );
+    const result = await response.json();
+    const aiResponse = {
+      content: result.choices[0].message.content
+    };
+
+    return new Response(JSON.stringify(aiResponse), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 200,
+    });
+
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
-    return new Response(
-      JSON.stringify({ error: errorMessage }),
-      {
-        status: 500,
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'application/json',
-        },
-      }
-    );
+    console.error('Error:', error);
+    return new Response(JSON.stringify({ error: (error as Error).message }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 500,
+    });
   }
 }); 

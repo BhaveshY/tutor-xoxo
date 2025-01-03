@@ -1,102 +1,102 @@
-import { serve } from "https://deno.land/std@0.177.0/http/server.ts"
-import { OpenAI } from "https://esm.sh/openai@4.28.0"
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+import { corsHeaders } from '../_shared/cors.ts';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+interface TutorRequest {
+  prompt: string;
+  chatHistory?: Array<{ role: 'user' | 'assistant'; content: string }>;
+  model: string;
+  subject?: string;
 }
 
-const SYSTEM_PROMPT = `You are an expert educational tutor with deep knowledge across multiple subjects. Your goal is to help students learn effectively through:
-
-1. Clear Explanations:
-   - Break down complex concepts into simpler parts
-   - Use analogies and real-world examples
-   - Provide step-by-step explanations for problem-solving
-
-2. Active Learning:
-   - Ask guiding questions to promote critical thinking
-   - Encourage students to make connections between concepts
-   - Help students discover answers through guided exploration
-
-3. Subject Expertise:
-   - Adapt explanations based on the subject area
-   - Use subject-specific terminology appropriately
-   - Connect topics to broader concepts in the field
-
-4. Personalization:
-   - Adjust explanations based on student's prior responses
-   - Provide additional examples if needed
-   - Offer alternative explanations when students struggle
-
-5. Learning Support:
-   - Suggest relevant practice exercises
-   - Recommend learning resources
-   - Point out common misconceptions
-   - Provide mnemonics or memory aids when helpful
-
-Remember to:
-- Be encouraging and supportive
-- Acknowledge student effort
-- Check for understanding
-- Address misconceptions directly
-- Use markdown formatting for better readability`;
-
-serve(async (req) => {
+serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+    return new Response('ok', { headers: corsHeaders });
   }
 
   try {
-    const { prompt, chatHistory = [], subject = 'General' } = await req.json()
-    if (!prompt) {
-      throw new Error('Prompt is required')
+    const {
+      prompt,
+      chatHistory = [],
+      model = 'openai/gpt-4-turbo-preview',
+      subject = 'General'
+    } = await req.json() as TutorRequest;
+
+    const systemMessage = {
+      role: 'system' as const,
+      content: `You are an expert tutor in ${subject}. Your goal is to help students understand concepts clearly and develop strong problem-solving skills. Be patient, encouraging, and thorough in your explanations.`
+    };
+
+    const messages = [systemMessage, ...chatHistory, { role: 'user' as const, content: prompt }];
+
+    // Get the appropriate API key and base URL based on the provider
+    const [provider] = model.split('/');
+    let apiKey: string | undefined;
+    let apiBase: string;
+    let modelName: string;
+    
+    switch (provider) {
+      case 'openai':
+        apiKey = Deno.env.get('OPENAI_API_KEY');
+        apiBase = 'https://api.openai.com/v1';
+        modelName = 'gpt-4-1106-preview';
+        break;
+      case 'groq':
+        apiKey = Deno.env.get('GROQ_API_KEY');
+        apiBase = 'https://api.groq.com/openai/v1';
+        modelName = 'mixtral-8x7b-32768';
+        break;
+      case 'anthropic':
+        apiKey = Deno.env.get('ANTHROPIC_API_KEY');
+        apiBase = 'https://api.anthropic.com/v1';
+        modelName = 'claude-3-sonnet-20240229';
+        break;
+      default:
+        apiKey = Deno.env.get('OPENAI_API_KEY');
+        apiBase = 'https://api.openai.com/v1';
+        modelName = 'gpt-4-1106-preview';
     }
 
-    const openai = new OpenAI({ apiKey: Deno.env.get('OPENAI_API_KEY') })
+    if (!apiKey) {
+      throw new Error(`API key not found for provider ${provider}`);
+    }
 
-    // Convert chat history to OpenAI message format
-    const messages = [
-      { 
-        role: 'system', 
-        content: `${SYSTEM_PROMPT}\n\nCurrent subject: ${subject}. Adapt your responses accordingly.` 
+    // Make request to provider's API directly
+    const response = await fetch(`${apiBase}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+        ...(provider === 'anthropic' ? { 'anthropic-version': '2023-06-01' } : {})
       },
-      ...chatHistory.map((msg: { role: string; content: string }) => ({
-        role: msg.role,
-        content: msg.content,
-      })),
-      { role: 'user', content: prompt },
-    ]
+      body: JSON.stringify({
+        model: modelName,
+        messages,
+        temperature: 0.7,
+        max_tokens: 2000
+      })
+    });
 
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4',
-      messages,
-      temperature: 0.7,
-      max_tokens: 1000,
-    })
-
-    const content = completion.choices[0]?.message?.content
-    if (!content) {
-      throw new Error('No response generated')
+    if (!response.ok) {
+      const error = await response.json();
+      console.error('API error response:', error);
+      throw new Error(error.message || `API error: ${response.statusText}`);
     }
 
-    return new Response(
-      JSON.stringify({ content }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200,
-      }
-    )
-  } catch (err: unknown) {
-    const error = err as Error
-    return new Response(
-      JSON.stringify({
-        content: '',
-        error: error.message || 'Internal server error'
-      }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200,
-      }
-    )
+    const result = await response.json();
+    const aiResponse = {
+      content: result.choices[0].message.content
+    };
+
+    return new Response(JSON.stringify(aiResponse), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 200,
+    });
+
+  } catch (error) {
+    console.error('Error:', error);
+    return new Response(JSON.stringify({ error: (error as Error).message }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 500,
+    });
   }
-}) 
+}); 

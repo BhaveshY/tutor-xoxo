@@ -1,4 +1,16 @@
-import { useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
+import { supabase } from '../lib/supabaseClient.ts';
+import { LLMSelector } from '../components/LLMSelector.tsx';
+import type { LLMProvider } from '../services/llmService.ts';
+import useStore from '../store/useStore.ts';
+import { llmService } from '../services/llmService.ts';
+import { databaseService } from '../services/databaseService.ts';
+import type { LearningRoadmap } from '../services/databaseService.ts';
+import { notifications } from '@mantine/notifications';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import Progress from './Progress.tsx';
+import type { RoadmapTopic } from '../types/roadmap.ts';
 import {
   Container,
   Paper,
@@ -7,7 +19,7 @@ import {
   Button,
   Stack,
   Title,
-  Group,
+  Group as MantineGroup,
   Select,
   Box,
   Divider,
@@ -27,6 +39,7 @@ import remarkGfm from "remark-gfm";
 import useStore from "../store/useStore.ts";
 // import { Editor } from "@monaco-editor/react";
 import { llmService } from "../services/llmService.ts";
+} from '@mantine/core';
 import {
   IconTrash,
   IconRefresh,
@@ -38,11 +51,10 @@ import {
   IconArrowRight,
   IconCheck,
   IconX,
-} from "@tabler/icons-react";
-import "../styles/markdown.css";
-import Progress from "./Progress.tsx";
-import { RoadmapTopic } from "../types/roadmap.ts";
+  IconLogout,
+} from '@tabler/icons-react';
 
+// Types
 interface ChatMessage {
   role: "user" | "assistant";
   content: string;
@@ -76,6 +88,8 @@ interface SavedRoadmap {
   title: string;
   content: string;
   timestamp: Date;
+  topics: RoadmapTopic[];
+  progress: number;
 }
 
 interface PracticeStats {
@@ -84,6 +98,8 @@ interface PracticeStats {
   incorrect: number;
   streak: number;
 }
+
+type RoadmapItem = SavedRoadmap;
 
 const parseRoadmapContent = (content: string): RoadmapTopic[] => {
   const lines = content.split("\n");
@@ -121,9 +137,22 @@ const parseRoadmapContent = (content: string): RoadmapTopic[] => {
   return topics;
 };
 
+const getModelLabel = (model: LLMProvider): string => {
+  switch (model) {
+    case 'openai/gpt-4-turbo-preview':
+      return 'GPT-4 Turbo';
+    case 'groq/grok-2-1212':
+      return 'Grok-2';
+    case 'anthropic/claude-3-5-sonnet-20241022':
+      return 'Claude 3 Sonnet';
+    default:
+      return 'Unknown Model';
+  }
+};
+
 const Dashboard = () => {
-  const { currentMode, user, addRoadmap, roadmaps, removeRoadmap } = useStore();
-  const [userInput, setUserInput] = useState("");
+  const { currentMode, user, addRoadmap, roadmaps, removeRoadmap, clearRoadmaps } = useStore();
+  const [userInput, setUserInput] = useState('');
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [savedQuestions, setSavedQuestions] = useState<SavedQuestion[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -146,6 +175,38 @@ const Dashboard = () => {
   });
   const [selectedDifficulty, setSelectedDifficulty] =
     useState<string>("medium");
+  const [selectedModel, setSelectedModel] = useState<LLMProvider>('openai/gpt-4-turbo-preview');
+
+  // Load roadmaps when user logs in
+  useEffect(() => {
+    const loadRoadmaps = async () => {
+      if (!user?.id) return;
+      
+      try {
+        clearRoadmaps();
+        const roadmapsData = await databaseService.getRoadmaps(user.id);
+        roadmapsData.forEach(roadmap => {
+          addRoadmap({
+            id: roadmap.id,
+            title: roadmap.title,
+            content: roadmap.content,
+            timestamp: new Date(roadmap.created_at),
+            topics: [],
+            progress: 0
+          });
+        });
+      } catch (error) {
+        console.error('Error loading roadmaps:', error);
+        notifications.show({
+          title: 'Error',
+          message: 'Failed to load roadmaps',
+          color: 'red',
+        });
+      }
+    };
+
+    loadRoadmaps();
+  }, [user?.id, addRoadmap, clearRoadmaps]);
 
   useEffect(() => {
     if (chatBoxRef.current) {
@@ -187,7 +248,8 @@ const Dashboard = () => {
       // Get AI response with chat history
       const result = await llmService.generateTutorResponse(
         `[Subject: ${selectedSubject || "General"}] ${userInput}`,
-        chatHistory.map((msg) => ({ role: msg.role, content: msg.content }))
+        chatHistory.map((msg) => ({ role: msg.role, content: msg.content })),
+        selectedModel
       );
 
       if (result.error) {
@@ -264,30 +326,23 @@ const Dashboard = () => {
 
     setIsLoading(true);
     try {
-      const result = await llmService.generateRoadmap(userInput);
-      if (result.error) throw new Error(result.error);
+      const result = await llmService.generateRoadmap(userInput, selectedModel);
+      if (result.error) {
+        throw new Error(result.error);
+      }
 
-      // Extract title from content
-      const title = result.content.split("\n")[0].replace("# ", "").trim();
-
-      const roadmapBase = {
-        id: Date.now().toString(),
-        title,
-        content: result.content,
-        timestamp: new Date(),
-      };
-
+      // Process and save roadmap
       const topics = parseRoadmapContent(result.content);
-      const newRoadmap = {
-        ...roadmapBase,
+      addRoadmap({
+        id: Date.now().toString(),
+        title: userInput,
         topics,
+        content: result.content,
         progress: 0,
-      };
+        timestamp: new Date(),
+      });
 
-      addRoadmap(newRoadmap);
-      setSelectedRoadmap(newRoadmap);
       setUserInput("");
-
       notifications.show({
         title: "Success",
         message: "Roadmap generated successfully",
@@ -305,11 +360,11 @@ const Dashboard = () => {
     }
   };
 
-  const handlePracticeSubmit = async () => {
+  const handleStartPractice = async () => {
     if (!userInput.trim()) {
       notifications.show({
         title: "Error",
-        message: "Please enter a topic for practice questions",
+        message: "Please enter a topic for practice",
         color: "red",
       });
       return;
@@ -319,28 +374,28 @@ const Dashboard = () => {
     try {
       const result = await llmService.generatePracticeQuestions({
         prompt: userInput,
-        difficulty: selectedDifficulty as "easy" | "medium" | "hard",
+        difficulty: selectedDifficulty as "easy" | "medium" | "hard",,
+        provider: selectedModel
       });
 
-      if (result.error) throw new Error(result.error);
+      if (result.error) {
+        throw new Error(result.error);
+      }
 
-      const questions = JSON.parse(result.content) as PracticeQuestion[];
+      const questions = JSON.parse(result.content);
       setPracticeQuestions(questions);
-      setUserInput("");
-
-      notifications.show({
-        title: "Success",
-        message: "Practice questions generated successfully",
-        color: "green",
+      setUserInput('');
+      setPracticeStats({
+        total: questions.length,
+        correct: 0,
+        incorrect: 0,
+        streak: 0,
       });
     } catch (error) {
       notifications.show({
-        title: "Error",
-        message:
-          error instanceof Error
-            ? error.message
-            : "Failed to generate questions",
-        color: "red",
+        title: 'Error',
+        message: error instanceof Error ? error.message : 'Failed to generate practice questions',
+        color: 'red',
       });
     } finally {
       setIsLoading(false);
@@ -370,12 +425,95 @@ const Dashboard = () => {
         return q;
       })
     );
-    setShowExplanation((prev) => ({ ...prev, [questionId]: true }));
+    setShowExplanation(prev => ({ ...prev, [questionId]: true }));
+  };
+
+  const handleModelChange = (model: LLMProvider) => {
+    setSelectedModel(model);
+    notifications.show({
+      title: 'Model Changed',
+      message: `Switched to ${getModelLabel(model)}`,
+      color: 'blue',
+    });
+  };
+
+  const handleSignOut = async () => {
+    try {
+      await supabase.auth.signOut();
+      notifications.show({
+        title: 'Success',
+        message: 'Signed out successfully',
+        color: 'blue',
+      });
+    } catch (error) {
+      console.error('Error signing out:', error);
+      notifications.show({
+        title: 'Error',
+        message: 'Failed to sign out',
+        color: 'red',
+      });
+    }
+  };
+
+  const handleSaveRoadmap = async () => {
+    try {
+      if (!user?.id) {
+        notifications.show({
+          title: 'Error',
+          message: 'You must be logged in to save a roadmap',
+          color: 'red',
+        });
+        return;
+      }
+
+      const newRoadmap: Omit<LearningRoadmap, 'id' | 'created_at' | 'updated_at'> = {
+        user_id: user.id,
+        title: `Learning Roadmap - ${selectedSubject}`,
+        content: chatHistory[chatHistory.length - 1].content,
+        provider: selectedModel
+      };
+      
+      const savedRoadmap = await databaseService.createRoadmap(newRoadmap);
+      
+      const roadmapWithTopics: SavedRoadmap = {
+        id: savedRoadmap.id,
+        title: savedRoadmap.title,
+        content: savedRoadmap.content,
+        timestamp: new Date(savedRoadmap.created_at),
+        topics: [],
+        progress: 0
+      };
+      
+      addRoadmap(roadmapWithTopics);
+      setSelectedRoadmap(roadmapWithTopics);
+      
+      notifications.show({
+        title: 'Success',
+        message: 'Roadmap saved successfully',
+        color: 'green',
+      });
+    } catch (error) {
+      console.error('Error saving roadmap:', error);
+      notifications.show({
+        title: 'Error',
+        message: 'Failed to save roadmap',
+        color: 'red',
+      });
+    }
+  };
+
+  const handleRoadmapClick = (roadmap: RoadmapItem) => {
+    const roadmapWithTopics: SavedRoadmap = {
+      ...roadmap,
+      topics: roadmap.topics || [],
+      progress: roadmap.progress || 0
+    };
+    setSelectedRoadmap(roadmapWithTopics);
   };
 
   const renderTutorMode = () => (
     <Stack gap="lg">
-      <Group justify="space-between" align="center">
+      <MantineGroup justify="space-between" align="center">
         <Title order={2}>AI Tutor</Title>
         <Select
           placeholder="Select subject"
@@ -385,22 +523,20 @@ const Dashboard = () => {
           clearable
           style={{ width: 200 }}
         />
-      </Group>
+      </MantineGroup>
 
-      <Group grow align="flex-start">
+      <MantineGroup grow align="flex-start">
         <Stack style={{ flex: 2 }}>
           <Paper p="md" withBorder>
             <Stack gap="md">
-              <Group justify="space-between">
-                <Text size="lg" fw={500}>
-                  Chat
-                </Text>
+              <MantineGroup justify="space-between">
+                <Text size="lg" fw={500}>Chat</Text>
                 <Tooltip label="Clear chat">
                   <ActionIcon variant="light" onClick={clearChat}>
                     <IconRefresh size={20} />
                   </ActionIcon>
                 </Tooltip>
-              </Group>
+              </MantineGroup>
               <Box
                 ref={chatBoxRef}
                 style={{ height: "400px", overflowY: "auto" }}
@@ -426,7 +562,7 @@ const Dashboard = () => {
                   </Paper>
                 ))}
               </Box>
-              <Group>
+              <MantineGroup>
                 <Textarea
                   placeholder="Ask your question..."
                   value={userInput}
@@ -458,7 +594,7 @@ const Dashboard = () => {
                     </ActionIcon>
                   </Tooltip>
                 </Stack>
-              </Group>
+              </MantineGroup>
             </Stack>
           </Paper>
         </Stack>
@@ -466,12 +602,12 @@ const Dashboard = () => {
         <Stack style={{ flex: 1 }}>
           <Paper p="md" withBorder>
             <Stack gap="md">
-              <Group justify="space-between">
+              <MantineGroup justify="space-between">
                 <Text size="lg" fw={500}>
                   Saved Questions
                 </Text>
                 <IconBrain size={20} />
-              </Group>
+              </MantineGroup>
               <Divider />
               {savedQuestions.length === 0 ? (
                 <Text c="dimmed" ta="center" py="xl">
@@ -498,15 +634,15 @@ const Dashboard = () => {
             </Stack>
           </Paper>
         </Stack>
-      </Group>
+      </MantineGroup>
     </Stack>
   );
 
   const renderRoadmapMode = () => (
     <Stack gap="lg">
-      <Group justify="space-between" align="center">
+      <MantineGroup justify="space-between" align="center">
         <Title order={2}>Learning Roadmap Generator</Title>
-        <Group>
+        <MantineGroup>
           <Select
             placeholder="Select subject"
             data={subjects}
@@ -518,10 +654,10 @@ const Dashboard = () => {
           <Badge size="lg" variant="light">
             {roadmaps.length} Saved Roadmaps
           </Badge>
-        </Group>
-      </Group>
+        </MantineGroup>
+      </MantineGroup>
 
-      <Group grow align="flex-start">
+      <MantineGroup grow align="flex-start">
         <Stack style={{ flex: 2 }}>
           <Paper p="md" withBorder>
             <Stack gap="md">
@@ -535,7 +671,7 @@ const Dashboard = () => {
                 maxRows={8}
                 disabled={isLoading}
               />
-              <Group justify="flex-end">
+              <MantineGroup justify="flex-end">
                 <Button
                   leftSection={<IconMap size={20} />}
                   onClick={handleRoadmapSubmit}
@@ -545,14 +681,14 @@ const Dashboard = () => {
                 >
                   Generate Roadmap
                 </Button>
-              </Group>
+              </MantineGroup>
             </Stack>
           </Paper>
 
           {selectedRoadmap && (
             <Paper p="md" withBorder shadow="sm">
               <Stack gap="md">
-                <Group justify="apart">
+                <MantineGroup justify="apart">
                   <Stack gap={0}>
                     <Text size="lg" fw={600}>
                       {selectedRoadmap.title}
@@ -566,19 +702,30 @@ const Dashboard = () => {
                           ).toLocaleDateString()}
                     </Text>
                   </Stack>
-                  <Group>
+                  <MantineGroup>
                     <Button
                       variant="light"
                       color="red"
                       size="sm"
-                      onClick={() => {
-                        setSelectedRoadmap(null);
-                        removeRoadmap(selectedRoadmap.id);
+                      onClick={async () => {
+                        try {
+                          await databaseService.deleteRoadmap(selectedRoadmap.id);
+                          removeRoadmap(selectedRoadmap.id);
+                          setSelectedRoadmap(null);
+                          removeRoadmap(selectedRoadmap.id);
                         notifications.show({
-                          title: "Success",
-                          message: "Roadmap deleted successfully",
-                          color: "green",
-                        });
+                            title: "Success",
+                            message: "Roadmap deleted successfully",
+                            color: "green",
+                          });
+                        } catch (error) {
+                          console.error('Error deleting roadmap:', error);
+                          notifications.show({
+                            title: 'Error',
+                            message: 'Failed to delete roadmap',
+                            color: 'red',
+                          });
+                        }
                       }}
                     >
                       Delete
@@ -610,8 +757,8 @@ const Dashboard = () => {
                     >
                       Download
                     </Button>
-                  </Group>
-                </Group>
+                  </MantineGroup>
+                </MantineGroup>
                 <Box
                   className="markdown-content"
                   style={{
@@ -631,13 +778,13 @@ const Dashboard = () => {
         <Stack style={{ flex: 1 }}>
           <Paper p="md" withBorder>
             <Stack gap="md">
-              <Group justify="space-between">
+              <MantineGroup justify="space-between">
                 <Text fw={500}>Saved Roadmaps</Text>
                 <IconMap size={20} />
-              </Group>
+              </MantineGroup>
               <Divider />
               {roadmaps.length === 0 ? (
-                <Stack align="center" gap="xs" py="xl">
+                <MantineGroup align="center" gap="xs" py="xl">
                   <IconMap size={40} stroke={1.5} color="gray" />
                   <Text c="dimmed" ta="center">
                     No saved roadmaps yet
@@ -645,10 +792,10 @@ const Dashboard = () => {
                   <Text size="sm" c="dimmed" ta="center">
                     Generate your first learning roadmap to get started
                   </Text>
-                </Stack>
+                </MantineGroup>
               ) : (
-                <Stack gap="sm">
-                  {roadmaps.map((roadmap) => (
+                <MantineGroup gap="sm">
+                  {roadmaps.map((roadmap: RoadmapItem) => (
                     <Paper
                       key={roadmap.id}
                       p="sm"
@@ -660,13 +807,13 @@ const Dashboard = () => {
                             ? "var(--mantine-color-blue-light)"
                             : undefined,
                       }}
-                      onClick={() => setSelectedRoadmap(roadmap)}
+                      onClick={() => handleRoadmapClick(roadmap)}
                     >
-                      <Stack gap="xs">
+                      <MantineGroup gap="xs">
                         <Text size="sm" fw={500} lineClamp={2}>
                           {roadmap.title}
                         </Text>
-                        <Group justify="apart">
+                        <MantineGroup justify="apart">
                           <Text size="xs" c="dimmed">
                             {roadmap.timestamp instanceof Date
                               ? roadmap.timestamp.toLocaleDateString()
@@ -678,7 +825,7 @@ const Dashboard = () => {
                             {
                               roadmap.content
                                 .split("\n")
-                                .filter((line) => line.trim().startsWith("- "))
+                                .filter(((line: string)) => line.trim().startsWith("- "))
                                 .length
                             }{" "}
                             steps
@@ -697,24 +844,24 @@ const Dashboard = () => {
                           >
                             <IconTrash size={20} />
                           </ActionIcon>
-                        </Group>
-                      </Stack>
+                        </MantineGroup>
+                      </MantineGroup>
                     </Paper>
                   ))}
-                </Stack>
+                </MantineGroup>
               )}
             </Stack>
           </Paper>
         </Stack>
-      </Group>
+      </MantineGroup>
     </Stack>
   );
 
   const renderPracticeMode = () => (
     <Stack gap="lg">
-      <Group justify="space-between" align="center">
+      <MantineGroup justify="space-between" align="center">
         <Title order={2}>Practice Questions</Title>
-        <Group>
+        <MantineGroup>
           <Select
             placeholder="Select subject"
             data={subjects}
@@ -734,13 +881,13 @@ const Dashboard = () => {
             onChange={(value) => setSelectedDifficulty(value || "medium")}
             style={{ width: 120 }}
           />
-        </Group>
-      </Group>
+        </MantineGroup>
+      </MantineGroup>
 
       {practiceStats.total > 0 && (
         <Paper p="md" withBorder>
           <MantineGroup justify="space-between">
-            <Group>
+            <MantineGroup>
               <ThemeIcon color="blue" size="lg" variant="light">
                 <IconBrain size={20} />
               </ThemeIcon>
@@ -750,8 +897,8 @@ const Dashboard = () => {
                 </Text>
                 <Text fw={500}>{practiceStats.total}</Text>
               </div>
-            </Group>
-            <Group>
+            </MantineGroup>
+            <MantineGroup>
               <ThemeIcon color="green" size="lg" variant="light">
                 <IconCheck size={20} />
               </ThemeIcon>
@@ -761,8 +908,8 @@ const Dashboard = () => {
                 </Text>
                 <Text fw={500}>{practiceStats.correct}</Text>
               </div>
-            </Group>
-            <Group>
+            </MantineGroup>
+            <MantineGroup>
               <ThemeIcon color="red" size="lg" variant="light">
                 <IconX size={20} />
               </ThemeIcon>
@@ -772,8 +919,8 @@ const Dashboard = () => {
                 </Text>
                 <Text fw={500}>{practiceStats.incorrect}</Text>
               </div>
-            </Group>
-            <Group>
+            </MantineGroup>
+            <MantineGroup>
               <ThemeIcon color="yellow" size="lg" variant="light">
                 <IconArrowRight size={20} />
               </ThemeIcon>
@@ -783,7 +930,7 @@ const Dashboard = () => {
                 </Text>
                 <Text fw={500}>{practiceStats.streak}</Text>
               </div>
-            </Group>
+            </MantineGroup>
             <Text size="sm" c="dimmed">
               Accuracy:{" "}
               {practiceStats.total > 0
@@ -807,17 +954,17 @@ const Dashboard = () => {
             minRows={3}
             disabled={isLoading}
           />
-          <Group justify="flex-end">
+          <MantineGroup justify="flex-end">
             <Button
               leftSection={<IconListCheck size={20} />}
-              onClick={handlePracticeSubmit}
+              onClick={handleStartPractice}
               loading={isLoading}
               variant="gradient"
               gradient={{ from: "blue", to: "cyan" }}
             >
               Generate Questions
             </Button>
-          </Group>
+          </MantineGroup>
         </Stack>
       </Paper>
 
@@ -945,10 +1092,30 @@ const Dashboard = () => {
 
   return (
     <Container size="xl" py="xl">
-      {currentMode === "tutor" && renderTutorMode()}
-      {currentMode === "roadmap" && renderRoadmapMode()}
-      {currentMode === "practice" && renderPracticeMode()}
-      {currentMode === "progress" && <Progress />}
+      <Paper shadow="xs" p="md" mb="md">
+        <MantineGroup justify="space-between" align="center">
+          <Title order={3}>TutorGPT</Title>
+          <MantineGroup>
+            <LLMSelector value={selectedModel} onChange={handleModelChange} />
+            <Text size="sm" c="dimmed">{user?.email}</Text>
+            <Button 
+              variant="subtle" 
+              color="gray" 
+              leftSection={<IconLogout size={16} />}
+              onClick={handleSignOut}
+            >
+              Sign Out
+            </Button>
+          </MantineGroup>
+        </MantineGroup>
+      </Paper>
+
+      <main>
+        {currentMode === "tutor" && renderTutorMode()}
+        {currentMode === "roadmap" && renderRoadmapMode()}
+        {currentMode === "practice" && renderPracticeMode()}
+        {currentMode === "progress" && <Progress />}
+      </main>
     </Container>
   );
 };
