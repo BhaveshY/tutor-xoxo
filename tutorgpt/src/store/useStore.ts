@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { devtools, persist } from 'zustand/middleware';
 import { supabase } from '../lib/supabaseClient.ts';
-import { EvolutionaryOptimizer, evolutionService } from '../services/evolutionService.ts';
+import { evolutionService } from '../services/evolutionService.ts';
 import { Roadmap, RoadmapMetrics, TopicMetrics } from '../types/roadmap.ts';
 import { calculateProgress, parseRoadmapContent, ProgressData } from '@/pages/Progress.tsx';
 
@@ -18,7 +18,7 @@ interface Store {
   progress: RoadmapMetrics[];
   isLoading: boolean;
   emailConfirmationSent: boolean;
-  progressDataStore: any[];
+  progressDataStore: ProgressData[];
 
 
   updateProgressDataStore: (data: any) => void;
@@ -57,7 +57,7 @@ const useStore = create<Store>()(
       emailConfirmationSent: false,
       progressDataStore: [],
 
-      updateProgressDataStore: (data) => set({ progressDataStore: data }),
+      updateProgressDataStore: (data: ProgressData[]) => set({ progressDataStore: data }),
 
       setUser: (user) => set({ user }),
       setCurrentMode: (mode) => set({ currentMode: mode }),
@@ -77,6 +77,7 @@ const useStore = create<Store>()(
         set((state) => ({
           roadmaps: state.roadmaps.filter((r) => r.id !== id),
           progress: state.progress.filter((p) => p.roadmapId !== id),
+          progressDataStore: state.progressDataStore.filter(p => p.id !== id)
         })),
 
       updateProgress: (progress) =>
