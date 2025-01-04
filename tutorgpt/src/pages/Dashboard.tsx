@@ -1,16 +1,16 @@
 import { useState, useEffect, useRef } from "react";
-import { supabase } from '../lib/supabaseClient.ts';
-import { LLMSelector } from '../components/LLMSelector.tsx';
-import type { LLMProvider } from '../services/llmService.ts';
-import useStore from '../store/useStore.ts';
-import { llmService } from '../services/llmService.ts';
-import { databaseService } from '../services/databaseService.ts';
-import type { LearningRoadmap } from '../services/databaseService.ts';
-import { notifications } from '@mantine/notifications';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import Progress from './Progress.tsx';
-import type { RoadmapTopic } from '../types/roadmap.ts';
+import { supabase } from "../lib/supabaseClient.ts";
+import { LLMSelector } from "../components/LLMSelector.tsx";
+import type { LLMProvider } from "../services/llmService.ts";
+import useStore from "../store/useStore.ts";
+import { llmService } from "../services/llmService.ts";
+import { databaseService } from "../services/databaseService.ts";
+import type { LearningRoadmap } from "../services/databaseService.ts";
+import { notifications } from "@mantine/notifications";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import Progress from "./Progress.tsx";
+import type { RoadmapTopic } from "../types/roadmap.ts";
 import {
   Container,
   Paper,
@@ -44,7 +44,7 @@ import {
   IconCheck,
   IconX,
   IconLogout,
-} from '@tabler/icons-react';
+} from "@tabler/icons-react";
 
 // Types
 interface ChatMessage {
@@ -131,20 +131,27 @@ const parseRoadmapContent = (content: string): RoadmapTopic[] => {
 
 const getModelLabel = (model: LLMProvider): string => {
   switch (model) {
-    case 'openai/gpt-4-turbo-preview':
-      return 'GPT-4 Turbo';
-    case 'groq/grok-2-1212':
-      return 'Grok-2';
-    case 'anthropic/claude-3-5-sonnet-20241022':
-      return 'Claude 3 Sonnet';
+    case "openai/gpt-4-turbo-preview":
+      return "GPT-4 Turbo";
+    case "groq/grok-2-1212":
+      return "Grok-2";
+    case "anthropic/claude-3-5-sonnet-20241022":
+      return "Claude 3 Sonnet";
     default:
-      return 'Unknown Model';
+      return "Unknown Model";
   }
 };
 
 const Dashboard = () => {
-  const { currentMode, user, addRoadmap, roadmaps, removeRoadmap, clearRoadmaps } = useStore();
-  const [userInput, setUserInput] = useState('');
+  const {
+    currentMode,
+    user,
+    addRoadmap,
+    roadmaps,
+    removeRoadmap,
+    clearRoadmaps,
+  } = useStore();
+  const [userInput, setUserInput] = useState("");
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [savedQuestions, setSavedQuestions] = useState<SavedQuestion[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -167,7 +174,9 @@ const Dashboard = () => {
   });
   const [selectedDifficulty, setSelectedDifficulty] =
     useState<string>("medium");
-  const [selectedModel, setSelectedModel] = useState<LLMProvider>('openai/gpt-4-turbo-preview');
+  const [selectedModel, setSelectedModel] = useState<LLMProvider>(
+    "openai/gpt-4-turbo-preview"
+  );
 
   // Load roadmaps when user logs in
   useEffect(() => {
@@ -175,30 +184,34 @@ const Dashboard = () => {
       if (!user?.id) return;
 
       try {
-        clearRoadmaps();
+        // clearRoadmaps();
         const roadmapsData = await databaseService.getRoadmaps(user.id);
-        roadmapsData.forEach(roadmap => {
+        roadmapsData.forEach((roadmap) => {
           addRoadmap({
             id: roadmap.id,
             title: roadmap.title,
             content: roadmap.content,
             timestamp: new Date(roadmap.created_at),
             topics: [],
-            progress: 0
+            progress: 0,
           });
         });
       } catch (error) {
-        console.error('Error loading roadmaps:', error);
+        console.error("Error loading roadmaps:", error);
         notifications.show({
-          title: 'Error',
-          message: 'Failed to load roadmaps',
-          color: 'red',
+          title: "Error",
+          message: "Failed to load roadmaps",
+          color: "red",
         });
       }
     };
 
     loadRoadmaps();
-  }, [user?.id, addRoadmap, clearRoadmaps]);
+  }, [
+    user?.id,
+    addRoadmap,
+    // clearRoadmaps
+  ]);
 
   useEffect(() => {
     if (chatBoxRef.current) {
@@ -367,7 +380,7 @@ const Dashboard = () => {
       const result = await llmService.generatePracticeQuestions({
         prompt: userInput,
         difficulty: selectedDifficulty as "easy" | "medium" | "hard",
-        provider: selectedModel
+        provider: selectedModel,
       });
 
       if (result.error) {
@@ -376,22 +389,23 @@ const Dashboard = () => {
 
       const questions = JSON.parse(result.content);
       setPracticeQuestions(questions);
-      setUserInput('');
+      setUserInput("");
       setPracticeStats({
         total: questions.length,
         correct: 0,
         incorrect: 0,
         streak: 0,
       });
-    }
-    catch (error) {
+    } catch (error) {
       notifications.show({
-        title: 'Error',
-        message: error instanceof Error ? error.message : 'Failed to generate practice questions',
-        color: 'red',
+        title: "Error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Failed to generate practice questions",
+        color: "red",
       });
-    }
-    finally {
+    } finally {
       setIsLoading(false);
     }
   };
@@ -419,15 +433,15 @@ const Dashboard = () => {
         return q;
       })
     );
-    setShowExplanation(prev => ({ ...prev, [questionId]: true }));
+    setShowExplanation((prev) => ({ ...prev, [questionId]: true }));
   };
 
   const handleModelChange = (model: LLMProvider) => {
     setSelectedModel(model);
     notifications.show({
-      title: 'Model Changed',
+      title: "Model Changed",
       message: `Switched to ${getModelLabel(model)}`,
-      color: 'blue',
+      color: "blue",
     });
   };
 
@@ -435,16 +449,16 @@ const Dashboard = () => {
     try {
       await supabase.auth.signOut();
       notifications.show({
-        title: 'Success',
-        message: 'Signed out successfully',
-        color: 'blue',
+        title: "Success",
+        message: "Signed out successfully",
+        color: "blue",
       });
     } catch (error) {
-      console.error('Error signing out:', error);
+      console.error("Error signing out:", error);
       notifications.show({
-        title: 'Error',
-        message: 'Failed to sign out',
-        color: 'red',
+        title: "Error",
+        message: "Failed to sign out",
+        color: "red",
       });
     }
   };
@@ -453,18 +467,21 @@ const Dashboard = () => {
     try {
       if (!user?.id) {
         notifications.show({
-          title: 'Error',
-          message: 'You must be logged in to save a roadmap',
-          color: 'red',
+          title: "Error",
+          message: "You must be logged in to save a roadmap",
+          color: "red",
         });
         return;
       }
 
-      const newRoadmap: Omit<LearningRoadmap, 'id' | 'created_at' | 'updated_at'> = {
+      const newRoadmap: Omit<
+        LearningRoadmap,
+        "id" | "created_at" | "updated_at"
+      > = {
         user_id: user.id,
         title: `Learning Roadmap - ${selectedSubject}`,
         content: chatHistory[chatHistory.length - 1].content,
-        provider: selectedModel
+        provider: selectedModel,
       };
 
       const savedRoadmap = await databaseService.createRoadmap(newRoadmap);
@@ -475,23 +492,23 @@ const Dashboard = () => {
         content: savedRoadmap.content,
         timestamp: new Date(savedRoadmap.created_at),
         topics: [],
-        progress: 0
+        progress: 0,
       };
 
       addRoadmap(roadmapWithTopics);
       setSelectedRoadmap(roadmapWithTopics);
 
       notifications.show({
-        title: 'Success',
-        message: 'Roadmap saved successfully',
-        color: 'green',
+        title: "Success",
+        message: "Roadmap saved successfully",
+        color: "green",
       });
     } catch (error) {
-      console.error('Error saving roadmap:', error);
+      console.error("Error saving roadmap:", error);
       notifications.show({
-        title: 'Error',
-        message: 'Failed to save roadmap',
-        color: 'red',
+        title: "Error",
+        message: "Failed to save roadmap",
+        color: "red",
       });
     }
   };
@@ -500,7 +517,7 @@ const Dashboard = () => {
     const roadmapWithTopics: SavedRoadmap = {
       ...roadmap,
       topics: roadmap.topics || [],
-      progress: roadmap.progress || 0
+      progress: roadmap.progress || 0,
     };
     setSelectedRoadmap(roadmapWithTopics);
   };
@@ -524,7 +541,9 @@ const Dashboard = () => {
           <Paper p="md" withBorder>
             <Stack gap="md">
               <MantineGroup justify="space-between">
-                <Text size="lg" fw={500}>Chat</Text>
+                <Text size="lg" fw={500}>
+                  Chat
+                </Text>
                 <Tooltip label="Clear chat">
                   <ActionIcon variant="light" onClick={clearChat}>
                     <IconRefresh size={20} />
@@ -692,8 +711,8 @@ const Dashboard = () => {
                       {selectedRoadmap.timestamp instanceof Date
                         ? selectedRoadmap.timestamp.toLocaleDateString()
                         : new Date(
-                          selectedRoadmap.timestamp
-                        ).toLocaleDateString()}
+                            selectedRoadmap.timestamp
+                          ).toLocaleDateString()}
                     </Text>
                   </Stack>
                   <MantineGroup>
@@ -703,7 +722,9 @@ const Dashboard = () => {
                       size="sm"
                       onClick={async () => {
                         try {
-                          await databaseService.deleteRoadmap(selectedRoadmap.id);
+                          await databaseService.deleteRoadmap(
+                            selectedRoadmap.id
+                          );
                           removeRoadmap(selectedRoadmap.id);
                           setSelectedRoadmap(null);
                           // removeRoadmap(selectedRoadmap.id);
@@ -713,11 +734,11 @@ const Dashboard = () => {
                             color: "green",
                           });
                         } catch (error) {
-                          console.error('Error deleting roadmap:', error);
+                          console.error("Error deleting roadmap:", error);
                           notifications.show({
-                            title: 'Error',
-                            message: 'Failed to delete roadmap',
-                            color: 'red',
+                            title: "Error",
+                            message: "Failed to delete roadmap",
+                            color: "red",
                           });
                         }
                       }}
@@ -812,16 +833,17 @@ const Dashboard = () => {
                             {roadmap.timestamp instanceof Date
                               ? roadmap.timestamp.toLocaleDateString()
                               : new Date(
-                                roadmap.timestamp
-                              ).toLocaleDateString()}
+                                  roadmap.timestamp
+                                ).toLocaleDateString()}
                           </Text>
                           <Badge size="sm" variant="light">
                             {
                               roadmap.content
                                 .split("\n")
                                 // .filter(((line: string)) => line.trim().startsWith("- "))
-                                .filter((line: string) => line.trim().startsWith("- "))
-                                .length
+                                .filter((line: string) =>
+                                  line.trim().startsWith("- ")
+                                ).length
                             }{" "}
                             steps
                           </Badge>
@@ -930,8 +952,8 @@ const Dashboard = () => {
               Accuracy:{" "}
               {practiceStats.total > 0
                 ? Math.round(
-                  (practiceStats.correct / practiceStats.total) * 100
-                )
+                    (practiceStats.correct / practiceStats.total) * 100
+                  )
                 : 0}
               %
             </Text>
@@ -984,8 +1006,8 @@ const Dashboard = () => {
                         question.isCorrect === undefined
                           ? "blue"
                           : question.isCorrect
-                            ? "green"
-                            : "red"
+                          ? "green"
+                          : "red"
                       }
                       variant="light"
                       size="lg"
@@ -1006,8 +1028,8 @@ const Dashboard = () => {
                       question.difficulty === "easy"
                         ? "green"
                         : question.difficulty === "medium"
-                          ? "yellow"
-                          : "red"
+                        ? "yellow"
+                        : "red"
                     }
                   >
                     {question.difficulty}
@@ -1036,8 +1058,8 @@ const Dashboard = () => {
                               : "red"
                             : question.selectedAnswer !== undefined &&
                               key === question.correct
-                              ? "green"
-                              : undefined
+                            ? "green"
+                            : undefined
                         }
                         styles={{
                           radio: {
@@ -1092,7 +1114,9 @@ const Dashboard = () => {
           <Title order={3}>TutorGPT</Title>
           <MantineGroup>
             <LLMSelector value={selectedModel} onChange={handleModelChange} />
-            <Text size="sm" c="dimmed">{user?.email}</Text>
+            <Text size="sm" c="dimmed">
+              {user?.email}
+            </Text>
             <Button
               variant="subtle"
               color="gray"

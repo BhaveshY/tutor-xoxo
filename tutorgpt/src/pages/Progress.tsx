@@ -89,9 +89,25 @@ export const calculateProgress = (topics: RoadmapTopic[]): number => {
 };
 
 export const sortedOrder = (items: any) => {
-  items.sort((a: any, b: any) => {
-    return a.topics.complete - b.topics.complete;
-  });
+  console.log("SORTED ORDER");
+  items.sort((a: any, b: any) => a.completed - b.completed);
+  console.log(items);
+  return items;
+
+  // for (const item of items){
+  //   console.log(item);
+  // }
+
+  // const completed = [];
+  // const notCompleted = [];
+
+  // for (const item of arr) {
+  //     if (item.completed) {
+  //         completed.push(item);
+  //     } else {
+  //         notCompleted.push(item);
+  //     }
+  // }
 };
 
 const Progress = () => {
@@ -124,7 +140,7 @@ const Progress = () => {
   }, [progressData]);
 
   useEffect(() => {
-    if (progressDataStore.length === 0) {
+    if (progressDataStore?.length === 0) {
       const convertedProgress = roadmaps.map((roadmap) => {
         const topics = parseRoadmapContent(roadmap.content);
         const existingProgress = getProgress(roadmap.id);
@@ -155,17 +171,31 @@ const Progress = () => {
     }
   }, [roadmaps, getProgress]);
 
+  const handleUpdateProgressOrder = (data: any) => {
+    console.log("Inside handleUpdateProgressOrder");
+    console.log(data);
+    updateProgressDataOrder(
+      data.map((d: any) => {
+        if (d.id === selectedRoadmap) {
+          console.log(sortedOrder(d.topics));
+          // d = {...d, topics: sortedOrder(d.topics)};
+          return d;
+        }
+      })
+    );
+  };
+
   const handleSubtopicToggle = (topicId: string, subtopicId: string) => {
     if (!selectedRoadmap) return;
 
-    console.log("INSIDE HANDLE SUBTOPIC TOGGLE");
+    // console.log("INSIDE HANDLE SUBTOPIC TOGGLE");
 
     const currentTime = Date.now();
     const startTime = startTimes[`${topicId}-${subtopicId}`] || currentTime;
     const timeSpent = currentTime - startTime;
 
     setProgressData((prevData) => {
-      console.log("prevData", prevData);
+      // console.log("prevData", prevData);
       const updatedData = prevData.map((data) => {
         if (data.id === selectedRoadmap) {
           const updatedTopics = data.topics.map((topic) => {
@@ -275,111 +305,111 @@ const Progress = () => {
     }));
   };
 
-  const handleOptimize = () => {
-    if (!selectedRoadmap) return;
+  // const handleOptimize = () => {
+  //   if (!selectedRoadmap) return;
 
-    // Store original order for comparison
-    const originalOrder =
-      progressData
-        .find((p) => p.id === selectedRoadmap)
-        ?.topics.map((t) => t.id) || [];
+  //   // Store original order for comparison
+  //   const originalOrder =
+  //     progressData
+  //       .find((p) => p.id === selectedRoadmap)
+  //       ?.topics.map((t) => t.id) || [];
 
-    optimizeRoadmap(selectedRoadmap);
+  //   optimizeRoadmap(selectedRoadmap);
 
-    // Force refresh of progress data to reflect changes
-    const updatedRoadmap = roadmaps.find((r) => r.id === selectedRoadmap);
-    if (updatedRoadmap) {
-      setProgressData((prevData) =>
-        prevData.map((data) =>
-          data.id === selectedRoadmap
-            ? {
-                ...data,
-                topics: updatedRoadmap.topics.map((topic) => ({
-                  ...topic,
-                  isReordered:
-                    originalOrder.indexOf(topic.id) !==
-                    updatedRoadmap.topics.findIndex((t) => t.id === topic.id),
-                })),
-              }
-            : data
-        )
-      );
-    }
+  //   // Force refresh of progress data to reflect changes
+  //   const updatedRoadmap = roadmaps.find((r) => r.id === selectedRoadmap);
+  //   if (updatedRoadmap) {
+  //     setProgressData((prevData) =>
+  //       prevData.map((data) =>
+  //         data.id === selectedRoadmap
+  //           ? {
+  //               ...data,
+  //               topics: updatedRoadmap.topics.map((topic) => ({
+  //                 ...topic,
+  //                 isReordered:
+  //                   originalOrder.indexOf(topic.id) !==
+  //                   updatedRoadmap.topics.findIndex((t) => t.id === topic.id),
+  //               })),
+  //             }
+  //           : data
+  //       )
+  //     );
+  //   }
 
-    // Calculate changes
-    const changes =
-      updatedRoadmap?.topics
-        .map((topic, index) => {
-          const oldIndex = originalOrder.indexOf(topic.id);
-          const metrics = getTopicMetrics(selectedRoadmap, topic.id);
+  //   // Calculate changes
+  //   const changes =
+  //     updatedRoadmap?.topics
+  //       .map((topic, index) => {
+  //         const oldIndex = originalOrder.indexOf(topic.id);
+  //         const metrics = getTopicMetrics(selectedRoadmap, topic.id);
 
-          let reason = "";
-          if (metrics) {
-            if (metrics.consistencyScore > 0.7)
-              reason = "High consistency in learning pattern";
-            else if (metrics.retentionRate > 0.7)
-              reason = "Good retention rate";
-            else if (
-              metrics.averageTimePerSubtopic >= 20 &&
-              metrics.averageTimePerSubtopic <= 40
-            )
-              reason = "Optimal time management";
-            else reason = "Better prerequisite ordering";
-          }
+  //         let reason = "";
+  //         if (metrics) {
+  //           if (metrics.consistencyScore > 0.7)
+  //             reason = "High consistency in learning pattern";
+  //           else if (metrics.retentionRate > 0.7)
+  //             reason = "Good retention rate";
+  //           else if (
+  //             metrics.averageTimePerSubtopic >= 20 &&
+  //             metrics.averageTimePerSubtopic <= 40
+  //           )
+  //             reason = "Optimal time management";
+  //           else reason = "Better prerequisite ordering";
+  //         }
 
-          return {
-            topicId: topic.id,
-            title: topic.title,
-            moved: index !== oldIndex,
-            oldPosition: oldIndex + 1,
-            newPosition: index + 1,
-            reason,
-          };
-        })
-        .filter((change) => change.moved) || [];
+  //         return {
+  //           topicId: topic.id,
+  //           title: topic.title,
+  //           moved: index !== oldIndex,
+  //           oldPosition: oldIndex + 1,
+  //           newPosition: index + 1,
+  //           reason,
+  //         };
+  //       })
+  //       .filter((change) => change.moved) || [];
 
-    // Show optimization summary
-    if (changes.length > 0) {
-      notifications.show({
-        title: "Roadmap Optimized",
-        message: (
-          <Stack>
-            <Text size="sm" fw={500}>
-              Topics have been reordered based on your learning patterns:
-            </Text>
-            {changes.map((change, index) => (
-              <Box key={index}>
-                <Text size="sm">
-                  "{change.title}"{" "}
-                  {change.oldPosition < change.newPosition
-                    ? "moved down"
-                    : "moved up"}{" "}
-                  to position {change.newPosition}
-                </Text>
-                <Text size="xs" c="dimmed">
-                  Reason: {change.reason}
-                </Text>
-              </Box>
-            ))}
-            <Text size="xs" c="dimmed" mt="sm">
-              💡 Topics are ordered based on your performance, learning
-              patterns, and topic dependencies. The completion status of all
-              topics and subtopics is preserved.
-            </Text>
-          </Stack>
-        ),
-        color: "blue",
-        autoClose: false,
-      });
-    } else {
-      notifications.show({
-        title: "No Changes Needed",
-        message:
-          "The current order is already optimal based on your learning patterns.",
-        color: "green",
-      });
-    }
-  };
+  //   // Show optimization summary
+  //   if (changes.length > 0) {
+  //     notifications.show({
+  //       title: "Roadmap Optimized",
+  //       message: (
+  //         <Stack>
+  //           <Text size="sm" fw={500}>
+  //             Topics have been reordered based on your learning patterns:
+  //           </Text>
+  //           {changes.map((change, index) => (
+  //             <Box key={index}>
+  //               <Text size="sm">
+  //                 "{change.title}"{" "}
+  //                 {change.oldPosition < change.newPosition
+  //                   ? "moved down"
+  //                   : "moved up"}{" "}
+  //                 to position {change.newPosition}
+  //               </Text>
+  //               <Text size="xs" c="dimmed">
+  //                 Reason: {change.reason}
+  //               </Text>
+  //             </Box>
+  //           ))}
+  //           <Text size="xs" c="dimmed" mt="sm">
+  //             💡 Topics are ordered based on your performance, learning
+  //             patterns, and topic dependencies. The completion status of all
+  //             topics and subtopics is preserved.
+  //           </Text>
+  //         </Stack>
+  //       ),
+  //       color: "blue",
+  //       autoClose: false,
+  //     });
+  //   } else {
+  //     notifications.show({
+  //       title: "No Changes Needed",
+  //       message:
+  //         "The current order is already optimal based on your learning patterns.",
+  //       color: "green",
+  //     });
+  //   }
+  // };
 
   const toggleTopic = (e: React.MouseEvent, topicId: string) => {
     e.preventDefault();
@@ -414,12 +444,12 @@ const Progress = () => {
 
   useEffect(() => {
     if (selectedRoadmap) {
-      const selectedProgress = progressData.find(
+      const selectedProgress = progressDataStore.find(
         (p) => p.id === selectedRoadmap
       );
       setSelectedProgress(selectedProgress);
     }
-  }, [selectedRoadmap, progressData]);
+  }, [selectedRoadmap, progressDataStore]);
   // const selectedProgress = selectedRoadmap
   //   ? progressData.find((p) => p.id === selectedRoadmap)
   //   : null;
@@ -444,9 +474,10 @@ const Progress = () => {
                   variant="light"
                   color="blue"
                   leftSection={<IconBrain size={20} />}
-                  onClick={() => {
-                    handleOptimize();
-                    updateProgressDataOrder(progressDataStore);
+                  onClick={(e) => {
+                    // handleOptimize();
+                    handleUpdateProgressOrder(progressDataStore);
+                    // updateProgressDataOrder(progressDataStore);
                   }}
                 >
                   Optimize Pathway
