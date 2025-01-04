@@ -3,7 +3,7 @@ import { devtools, persist } from 'zustand/middleware';
 import { supabase } from '../lib/supabaseClient.ts';
 import { evolutionService } from '../services/evolutionService.ts';
 import { Roadmap, RoadmapMetrics, TopicMetrics } from '../types/roadmap.ts';
-import { calculateProgress, parseRoadmapContent, ProgressData } from '@/pages/Progress.tsx';
+import { calculateProgress, parseRoadmapContent, ProgressData, sortedOrder } from '@/pages/Progress.tsx';
 
 interface User {
   id: string;
@@ -18,10 +18,11 @@ interface Store {
   progress: RoadmapMetrics[];
   isLoading: boolean;
   emailConfirmationSent: boolean;
-  progressDataStore: ProgressData[];
+  progressDataStore: any;
 
 
   updateProgressDataStore: (data: any) => void;
+  updateProgressDataOrder: (data: any) => void;
 
   // User management
   setUser: (user: User | null) => void;
@@ -58,7 +59,10 @@ const useStore = create<Store>()(
       emailConfirmationSent: false,
       progressDataStore: [],
 
-      updateProgressDataStore: (data: ProgressData[]) => set({ progressDataStore: data }),
+
+
+      updateProgressDataStore: (data: any) => set({ progressDataStore: data }),
+      updateProgressDataOrder: (data: any) => set({ progressDataStore: sortedOrder(data) }),
 
       setUser: (user) => set({ user }),
       setCurrentMode: (mode) => set({ currentMode: mode }),
@@ -190,6 +194,54 @@ const useStore = create<Store>()(
         const progress = state.progress.find(p => p.roadmapId === roadmapId);
         return progress?.topicMetrics[topicId];
       },
+
+      // optimizeRoadmap: (roadmapId) =>
+      //   set((state) => {
+      //     const roadmap = state.roadmaps.find(r => r.id === roadmapId);
+      //     const progress = state.progressDataStore.find(p => p.id === roadmapId);
+
+      //     if (!roadmap || !progress) return state;
+
+      //     const performances = roadmap.topics.map(topic => ({
+      //       topicId: topic.id,
+      //       metrics: {
+      //         completionTime: progress.topicMetrics[topic.id]?.timeSpent || 0,
+      //         attemptsCount: progress.topicMetrics[topic.id]?.attempts || 0,
+      //         successRate: progress.topicMetrics[topic.id]?.successRate || 0,
+      //         difficultyRating: progress.topicMetrics[topic.id]?.difficulty || 0.5,
+      //         lastAttemptTimestamp: progress.topicMetrics[topic.id]?.lastAttemptTimestamp || Date.now(),
+      //         averageTimePerSubtopic: progress.topicMetrics[topic.id]?.averageTimePerSubtopic || 0,
+      //         consistencyScore: progress.topicMetrics[topic.id]?.consistencyScore || 0,
+      //         retentionRate: progress.topicMetrics[topic.id]?.retentionRate || 0,
+      //       },
+      //     }));
+
+      //     const optimizedTopics = evolutionService.optimizeRoadmap(roadmap.topics, performances);
+
+      //     // Preserve completion status of topics and subtopics
+      //     const optimizedTopicsWithStatus = optimizedTopics.map(topic => {
+      //       const originalTopic = roadmap.topics.find(t => t.id === topic.id);
+      //       return {
+      //         ...topic,
+      //         completed: originalTopic?.completed || false,
+      //         subtopics: topic.subtopics.map(subtopic => {
+      //           const originalSubtopic = originalTopic?.subtopics.find(s => s.id === subtopic.id);
+      //           return {
+      //             ...subtopic,
+      //             completed: originalSubtopic?.completed || false,
+      //           };
+      //         }),
+      //       };
+      //     });
+
+      //     return {
+      //       roadmaps: state.roadmaps.map(r =>
+      //         r.id === roadmapId
+      //           ? { ...r, topics: optimizedTopicsWithStatus }
+      //           : r
+      //       ),
+      //     };
+      //   }),
 
       optimizeRoadmap: (roadmapId) =>
         set((state) => {

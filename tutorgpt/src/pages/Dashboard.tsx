@@ -30,16 +30,8 @@ import {
   Badge,
   Radio,
   // Group as RadioGroup,
-  Group as MantineGroup,
 } from "@mantine/core";
-import { useState } from "react";
-import { notifications } from "@mantine/notifications";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
-import useStore from "../store/useStore.ts";
 // import { Editor } from "@monaco-editor/react";
-import { llmService } from "../services/llmService.ts";
-} from '@mantine/core';
 import {
   IconTrash,
   IconRefresh,
@@ -181,7 +173,7 @@ const Dashboard = () => {
   useEffect(() => {
     const loadRoadmaps = async () => {
       if (!user?.id) return;
-      
+
       try {
         clearRoadmaps();
         const roadmapsData = await databaseService.getRoadmaps(user.id);
@@ -374,7 +366,7 @@ const Dashboard = () => {
     try {
       const result = await llmService.generatePracticeQuestions({
         prompt: userInput,
-        difficulty: selectedDifficulty as "easy" | "medium" | "hard",,
+        difficulty: selectedDifficulty as "easy" | "medium" | "hard",
         provider: selectedModel
       });
 
@@ -391,13 +383,15 @@ const Dashboard = () => {
         incorrect: 0,
         streak: 0,
       });
-    } catch (error) {
+    }
+    catch (error) {
       notifications.show({
         title: 'Error',
         message: error instanceof Error ? error.message : 'Failed to generate practice questions',
         color: 'red',
       });
-    } finally {
+    }
+    finally {
       setIsLoading(false);
     }
   };
@@ -472,9 +466,9 @@ const Dashboard = () => {
         content: chatHistory[chatHistory.length - 1].content,
         provider: selectedModel
       };
-      
+
       const savedRoadmap = await databaseService.createRoadmap(newRoadmap);
-      
+
       const roadmapWithTopics: SavedRoadmap = {
         id: savedRoadmap.id,
         title: savedRoadmap.title,
@@ -483,10 +477,10 @@ const Dashboard = () => {
         topics: [],
         progress: 0
       };
-      
+
       addRoadmap(roadmapWithTopics);
       setSelectedRoadmap(roadmapWithTopics);
-      
+
       notifications.show({
         title: 'Success',
         message: 'Roadmap saved successfully',
@@ -698,8 +692,8 @@ const Dashboard = () => {
                       {selectedRoadmap.timestamp instanceof Date
                         ? selectedRoadmap.timestamp.toLocaleDateString()
                         : new Date(
-                            selectedRoadmap.timestamp
-                          ).toLocaleDateString()}
+                          selectedRoadmap.timestamp
+                        ).toLocaleDateString()}
                     </Text>
                   </Stack>
                   <MantineGroup>
@@ -712,8 +706,8 @@ const Dashboard = () => {
                           await databaseService.deleteRoadmap(selectedRoadmap.id);
                           removeRoadmap(selectedRoadmap.id);
                           setSelectedRoadmap(null);
-                          removeRoadmap(selectedRoadmap.id);
-                        notifications.show({
+                          // removeRoadmap(selectedRoadmap.id);
+                          notifications.show({
                             title: "Success",
                             message: "Roadmap deleted successfully",
                             color: "green",
@@ -818,14 +812,15 @@ const Dashboard = () => {
                             {roadmap.timestamp instanceof Date
                               ? roadmap.timestamp.toLocaleDateString()
                               : new Date(
-                                  roadmap.timestamp
-                                ).toLocaleDateString()}
+                                roadmap.timestamp
+                              ).toLocaleDateString()}
                           </Text>
                           <Badge size="sm" variant="light">
                             {
                               roadmap.content
                                 .split("\n")
-                                .filter(((line: string)) => line.trim().startsWith("- "))
+                                // .filter(((line: string)) => line.trim().startsWith("- "))
+                                .filter((line: string) => line.trim().startsWith("- "))
                                 .length
                             }{" "}
                             steps
@@ -935,8 +930,8 @@ const Dashboard = () => {
               Accuracy:{" "}
               {practiceStats.total > 0
                 ? Math.round(
-                    (practiceStats.correct / practiceStats.total) * 100
-                  )
+                  (practiceStats.correct / practiceStats.total) * 100
+                )
                 : 0}
               %
             </Text>
@@ -989,8 +984,8 @@ const Dashboard = () => {
                         question.isCorrect === undefined
                           ? "blue"
                           : question.isCorrect
-                          ? "green"
-                          : "red"
+                            ? "green"
+                            : "red"
                       }
                       variant="light"
                       size="lg"
@@ -1011,8 +1006,8 @@ const Dashboard = () => {
                       question.difficulty === "easy"
                         ? "green"
                         : question.difficulty === "medium"
-                        ? "yellow"
-                        : "red"
+                          ? "yellow"
+                          : "red"
                     }
                   >
                     {question.difficulty}
@@ -1041,8 +1036,8 @@ const Dashboard = () => {
                               : "red"
                             : question.selectedAnswer !== undefined &&
                               key === question.correct
-                            ? "green"
-                            : undefined
+                              ? "green"
+                              : undefined
                         }
                         styles={{
                           radio: {
@@ -1098,9 +1093,9 @@ const Dashboard = () => {
           <MantineGroup>
             <LLMSelector value={selectedModel} onChange={handleModelChange} />
             <Text size="sm" c="dimmed">{user?.email}</Text>
-            <Button 
-              variant="subtle" 
-              color="gray" 
+            <Button
+              variant="subtle"
+              color="gray"
               leftSection={<IconLogout size={16} />}
               onClick={handleSignOut}
             >

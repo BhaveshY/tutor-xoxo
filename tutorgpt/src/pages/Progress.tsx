@@ -38,7 +38,6 @@ export interface ProgressData extends Omit<Roadmap, "content" | "timestamp"> {
   progress: number;
 }
 
-
 export const parseRoadmapContent = (content: string): RoadmapTopic[] => {
   const lines = content.split("\n");
   const topics: RoadmapTopic[] = [];
@@ -89,6 +88,12 @@ export const calculateProgress = (topics: RoadmapTopic[]): number => {
     : Math.round((completedSubtopics / totalSubtopics) * 100);
 };
 
+export const sortedOrder = (items: any) => {
+  items.sort((a: any, b: any) => {
+    return a.topics.complete - b.topics.complete;
+  });
+};
+
 const Progress = () => {
   const {
     roadmaps,
@@ -99,6 +104,7 @@ const Progress = () => {
     optimizeRoadmap,
     progressDataStore,
     updateProgressDataStore,
+    updateProgressDataOrder,
   } = useStore();
 
   const [selectedRoadmap, setSelectedRoadmap] = useState<string | null>(null);
@@ -149,18 +155,17 @@ const Progress = () => {
     }
   }, [roadmaps, getProgress]);
 
- 
-
-  
-
   const handleSubtopicToggle = (topicId: string, subtopicId: string) => {
     if (!selectedRoadmap) return;
+
+    console.log("INSIDE HANDLE SUBTOPIC TOGGLE");
 
     const currentTime = Date.now();
     const startTime = startTimes[`${topicId}-${subtopicId}`] || currentTime;
     const timeSpent = currentTime - startTime;
 
     setProgressData((prevData) => {
+      console.log("prevData", prevData);
       const updatedData = prevData.map((data) => {
         if (data.id === selectedRoadmap) {
           const updatedTopics = data.topics.map((topic) => {
@@ -222,28 +227,35 @@ const Progress = () => {
       const updatedRoadmap = updatedData.find((d) => d.id === selectedRoadmap);
       if (updatedRoadmap) {
         const existingProgress = getProgress(selectedRoadmap);
-        const timeSpent = startTimes[`${topicId}-${subtopicId}`] 
-          ? Date.now() - startTimes[`${topicId}-${subtopicId}`] 
+        const timeSpent = startTimes[`${topicId}-${subtopicId}`]
+          ? Date.now() - startTimes[`${topicId}-${subtopicId}`]
           : 0;
 
         const existingTopicMetrics = existingProgress?.topicMetrics || {};
         const updatedTopicMetrics: Record<string, TopicMetrics> = {
           ...existingTopicMetrics,
           [topicId]: {
-            timeSpent: existingTopicMetrics[topicId]?.timeSpent || 0,
+            timeSpent:
+              existingTopicMetrics[topicId]?.timeSpent || 0 + timeSpent,
             attempts: (existingTopicMetrics[topicId]?.attempts || 0) + 1,
             successRate: existingTopicMetrics[topicId]?.successRate || 0,
             difficulty: existingTopicMetrics[topicId]?.difficulty || 0.5,
             lastAttempt: new Date(),
             lastAttemptTimestamp: Date.now(),
-            averageTimePerSubtopic: existingTopicMetrics[topicId]?.averageTimePerSubtopic || 0,
-            consistencyScore: existingTopicMetrics[topicId]?.consistencyScore || 0,
+            averageTimePerSubtopic:
+              existingTopicMetrics[topicId]?.averageTimePerSubtopic || 0,
+            consistencyScore:
+              existingTopicMetrics[topicId]?.consistencyScore || 0,
             retentionRate: existingTopicMetrics[topicId]?.retentionRate || 0,
             subtopics: {
-              ...existingTopicMetrics[topicId]?.subtopics || {},
-              [subtopicId]: { completed: !existingTopicMetrics[topicId]?.subtopics[subtopicId]?.completed }
-            }
-          }
+              ...(existingTopicMetrics[topicId]?.subtopics || {}),
+              [subtopicId]: {
+                completed:
+                  !existingTopicMetrics[topicId]?.subtopics[subtopicId]
+                    ?.completed,
+              },
+            },
+          },
         };
 
         updateProgress({
@@ -411,11 +423,6 @@ const Progress = () => {
   // const selectedProgress = selectedRoadmap
   //   ? progressData.find((p) => p.id === selectedRoadmap)
   //   : null;
-  const test = selectedRoadmap
-    ? progressData.find((p) => p.id === selectedRoadmap)
-    : null;
-
-  console.log("TEST", test);
 
   return (
     <Container size="xl" py="xl">
@@ -437,7 +444,10 @@ const Progress = () => {
                   variant="light"
                   color="blue"
                   leftSection={<IconBrain size={20} />}
-                  onClick={handleOptimize}
+                  onClick={() => {
+                    handleOptimize();
+                    updateProgressDataOrder(progressDataStore);
+                  }}
                 >
                   Optimize Pathway
                 </Button>
