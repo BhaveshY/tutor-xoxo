@@ -721,26 +721,28 @@ const Dashboard = () => {
                       color="red"
                       size="sm"
                       onClick={async () => {
-                        try {
-                          await databaseService.deleteRoadmap(
-                            selectedRoadmap.id
-                          );
-                          removeRoadmap(selectedRoadmap.id);
-                          setSelectedRoadmap(null);
-                          // removeRoadmap(selectedRoadmap.id);
-                          notifications.show({
-                            title: "Success",
-                            message: "Roadmap deleted successfully",
-                            color: "green",
-                          });
-                        } catch (error) {
-                          console.error("Error deleting roadmap:", error);
-                          notifications.show({
-                            title: "Error",
-                            message: "Failed to delete roadmap",
-                            color: "red",
-                          });
-                        }
+                        // try {
+                        //   await databaseService.deleteRoadmap(
+                        //     selectedRoadmap.id
+                        //   );
+                        //   setSelectedRoadmap(null);
+                        //   removeRoadmap(selectedRoadmap.id);
+                        //   // removeRoadmap(selectedRoadmap.id);
+                        //   notifications.show({
+                        //     title: "Success",
+                        //     message: "Roadmap deleted successfully",
+                        //     color: "green",
+                        //   });
+                        // } catch (error) {
+                        //   console.error("Error deleting roadmap:", error);
+                        //   notifications.show({
+                        //     title: "Error",
+                        //     message: "Failed to delete roadmap",
+                        //     color: "red",
+                        //   });
+                        // }
+                        setSelectedRoadmap(null);
+                        removeRoadmap(selectedRoadmap.id);
                       }}
                     >
                       Delete
@@ -847,7 +849,7 @@ const Dashboard = () => {
                             }{" "}
                             steps
                           </Badge>
-                          <ActionIcon
+                          {/* <ActionIcon
                             variant="light"
                             onClick={() => {
                               setSelectedRoadmap(null);
@@ -860,7 +862,7 @@ const Dashboard = () => {
                             }}
                           >
                             <IconTrash size={20} />
-                          </ActionIcon>
+                          </ActionIcon> */}
                         </MantineGroup>
                       </MantineGroup>
                     </Paper>

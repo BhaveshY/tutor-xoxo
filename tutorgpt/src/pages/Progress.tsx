@@ -477,6 +477,11 @@ const Progress = () => {
                   onClick={(e) => {
                     // handleOptimize();
                     handleUpdateProgressOrder(progressDataStore);
+                    notifications.show({
+                      title: "Success",
+                      message: "Roadmap Progress updated successfully",
+                      color: "green",
+                    });
                     // updateProgressDataOrder(progressDataStore);
                   }}
                 >
