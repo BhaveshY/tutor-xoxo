@@ -3,6 +3,7 @@ import { llmService } from '../services/llmService.ts';
 import { databaseService, LearningRoadmap } from '../services/databaseService.ts';
 import { useAuth } from '../hooks/useAuth.ts';
 import { ErrorMessage } from './ErrorMessage.tsx';
+import { Projects } from './Projects.tsx';
 import ReactMarkdown from 'react-markdown';
 import { LLMProvider } from "../services/llmService.ts";
 
@@ -104,16 +105,17 @@ export const Roadmap: React.FC<RoadmapProps> = ({ className, provider }) => {
       {roadmaps.length > 0 ? (
         <div className="mt-8">
           <h2 className="text-xl font-semibold mb-4">Your Learning Roadmaps</h2>
-          <div className="space-y-4">
+          <div className="space-y-6">
             {roadmaps.map((roadmap) => (
-              <div key={roadmap.id} className="p-4 border rounded-lg hover:border-blue-200 transition-colors">
-                <h3 className="font-medium text-lg mb-2">{roadmap.title}</h3>
-                <div className="prose max-w-none">
-                  <ReactMarkdown>{roadmap.content}</ReactMarkdown>
+              <div key={roadmap.id} className="border rounded p-4">
+                <h3 className="text-xl font-bold mb-2">{roadmap.title}</h3>
+                <ReactMarkdown className="prose mb-4">
+                  {roadmap.content}
+                </ReactMarkdown>
+                <div className="mt-4">
+                  <h4 className="text-lg font-semibold mb-2">Project Suggestions</h4>
+                  <Projects provider={provider} roadmapId={roadmap.id} />
                 </div>
-                <p className="text-sm text-gray-500 mt-2">
-                  Created: {new Date(roadmap.created_at).toLocaleDateString()}
-                </p>
               </div>
             ))}
           </div>

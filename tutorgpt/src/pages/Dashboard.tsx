@@ -41,6 +41,7 @@ import {
   IconX,
   IconLogout,
 } from '@tabler/icons-react';
+import { Projects } from '../components/Projects.tsx';
 
 // Types
 interface ChatMessage {
@@ -155,6 +156,7 @@ const Dashboard = () => {
   });
   const [selectedDifficulty, setSelectedDifficulty] = useState<string>('medium');
   const [selectedModel, setSelectedModel] = useState<LLMProvider>('openai/gpt-4-turbo-preview');
+  const [mode, setMode] = useState<'tutor' | 'roadmap' | 'practice' | 'projects'>('tutor');
 
   // Load roadmaps when user logs in
   useEffect(() => {
@@ -986,32 +988,67 @@ const Dashboard = () => {
     </Stack>
   );
 
+  const renderProjectsMode = () => (
+    <Box>
+      <Title order={2} mb="md">Project Suggestions</Title>
+      <Text color="dimmed" mb="xl">
+        Get personalized project suggestions based on your learning roadmaps or specific topics.
+      </Text>
+      <Projects provider={selectedModel} />
+    </Box>
+  );
+
   return (
-    <Container size="xl" py="xl">
-      <Paper shadow="xs" p="md" mb="md">
-        <MantineGroup justify="space-between" align="center">
-          <Title order={3}>TutorGPT</Title>
-          <MantineGroup>
-            <LLMSelector value={selectedModel} onChange={handleModelChange} />
-            <Text size="sm" c="dimmed">{user?.email}</Text>
-            <Button 
-              variant="subtle" 
-              color="gray" 
-              leftSection={<IconLogout size={16} />}
-              onClick={handleSignOut}
+    <Container size="lg" py="xl">
+      <Paper shadow="sm" p="md" withBorder mb="lg">
+        <MantineGroup justify="space-between">
+          <MantineGroup justify="flex-start">
+            <ActionIcon
+              variant={mode === 'tutor' ? 'filled' : 'subtle'}
+              color="blue"
+              onClick={() => setMode('tutor')}
+              title="Chat with Tutor"
             >
-              Sign Out
-            </Button>
+              <IconBrain size={20} />
+            </ActionIcon>
+            <ActionIcon
+              variant={mode === 'roadmap' ? 'filled' : 'subtle'}
+              color="blue"
+              onClick={() => setMode('roadmap')}
+              title="Learning Roadmap"
+            >
+              <IconMap size={20} />
+            </ActionIcon>
+            <ActionIcon
+              variant={mode === 'practice' ? 'filled' : 'subtle'}
+              color="blue"
+              onClick={() => setMode('practice')}
+              title="Practice"
+            >
+              <IconListCheck size={20} />
+            </ActionIcon>
+            <ActionIcon
+              variant={mode === 'projects' ? 'filled' : 'subtle'}
+              color="blue"
+              onClick={() => setMode('projects')}
+              title="Projects"
+            >
+              <IconBookmark size={20} />
+            </ActionIcon>
+          </MantineGroup>
+          <MantineGroup justify="flex-end">
+            <LLMSelector value={selectedModel} onChange={handleModelChange} />
+            <ActionIcon color="red" onClick={handleSignOut} title="Sign Out">
+              <IconLogout size={20} />
+            </ActionIcon>
           </MantineGroup>
         </MantineGroup>
       </Paper>
 
-      <main>
-        {currentMode === 'tutor' && renderTutorMode()}
-        {currentMode === 'roadmap' && renderRoadmapMode()}
-        {currentMode === 'practice' && renderPracticeMode()}
-        {currentMode === 'progress' && <Progress />}
-      </main>
+      {mode === 'tutor' && renderTutorMode()}
+      {mode === 'roadmap' && renderRoadmapMode()}
+      {mode === 'practice' && renderPracticeMode()}
+      {mode === 'projects' && renderProjectsMode()}
     </Container>
   );
 };
