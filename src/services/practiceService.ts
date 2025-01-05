@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { databaseService } from './databaseService.ts';
+import type { PracticeSession } from './databaseService.ts';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -7,6 +8,7 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 interface PracticeResponse {
   content: string;
   error?: string;
+  sessionId?: string;
 }
 
 export type PracticeDifficulty = 'easy' | 'medium' | 'hard';
@@ -35,8 +37,8 @@ export const practiceService = {
           subject: params.prompt,
           difficulty: params.difficulty,
           question: data.content,
-          answer: null,
-          score: null
+          answer: undefined,
+          score: undefined
         });
 
         // Return both the question and session ID
@@ -56,16 +58,18 @@ export const practiceService = {
   submitAnswer: async (sessionId: string, answer: string): Promise<{ score: number }> => {
     try {
       // First, get the session to include the question in the evaluation
-      const session = await databaseService.getPracticeSession(sessionId);
-      if (!session) {
+      const session = await databaseService.getPracticeSessions(sessionId);
+      if (!session || session.length === 0) {
         throw new Error('Practice session not found');
       }
+
+      const currentSession = session[0];
 
       // Call the evaluation endpoint with both question and answer
       const { data, error } = await supabase.functions.invoke('evaluate-answer', {
         body: { 
           sessionId,
-          question: session.question,
+          question: currentSession.question,
           answer 
         },
       });
@@ -86,11 +90,12 @@ export const practiceService = {
     }
   },
 
-  getPracticeHistory: async (userId: string) => {
+  getPracticeHistory: async (userId: string): Promise<PracticeSession[]> => {
     return databaseService.getPracticeSessions(userId);
   },
 
-  getCurrentSession: async (sessionId: string) => {
-    return databaseService.getPracticeSession(sessionId);
+  getCurrentSession: async (sessionId: string): Promise<PracticeSession | null> => {
+    const sessions = await databaseService.getPracticeSessions(sessionId);
+    return sessions.length > 0 ? sessions[0] : null;
   }
 }; 

@@ -71,7 +71,7 @@ export const Practice: React.FC<PracticeProps> = ({ className, provider }) => {
 
   const handleSubmitAnswer = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!currentSession || !answer.trim() || isLoading) return;
+    if (!currentSession || !answer.trim() || isLoading || !currentSession.id) return;
 
     setIsLoading(true);
     setError(null);
@@ -193,10 +193,10 @@ export const Practice: React.FC<PracticeProps> = ({ className, provider }) => {
                       Difficulty: {session.difficulty}
                     </p>
                     <p className="text-sm text-gray-500">
-                      {new Date(session.created_at).toLocaleDateString()}
+                      {new Date(session.created_at ?? new Date()).toLocaleDateString()}
                     </p>
                   </div>
-                  {session.score !== null && (
+                  {session.score !== undefined && session.score !== null && (
                     <div className={`text-lg font-semibold ${
                       session.score >= 80 ? 'text-green-600' :
                       session.score >= 60 ? 'text-yellow-600' :

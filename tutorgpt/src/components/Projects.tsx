@@ -1,21 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../hooks/useAuth.ts';
 import { ErrorMessage } from './ErrorMessage.tsx';
+import { LLMProvider } from '../services/llmService.ts';
 import { supabase } from '../lib/supabaseClient.ts';
 import ReactMarkdown from 'react-markdown';
-import {
-  Paper,
-  Text,
-  TextInput,
-  Button,
-  Stack,
-  Group,
-  Badge,
-  Box,
-  Title,
-  Loader,
-} from '@mantine/core';
-import { notifications } from '@mantine/notifications';
+import { Paper, Text, TextInput, Button, Stack, Group, Badge, Box } from '@mantine/core';
 
 interface Project {
   id: string;
@@ -28,14 +17,14 @@ interface Project {
 
 interface ProjectsProps {
   className?: string;
+  provider: LLMProvider;
   roadmapId?: string;
 }
 
-export const Projects: React.FC<ProjectsProps> = ({ className, roadmapId }) => {
+export const Projects: React.FC<ProjectsProps> = ({ className, provider, roadmapId }) => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [topic, setTopic] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [isLoadingProjects, setIsLoadingProjects] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { session } = useAuth();
   const userId = session?.user?.id;
@@ -49,8 +38,6 @@ export const Projects: React.FC<ProjectsProps> = ({ className, roadmapId }) => {
   const loadProjects = async () => {
     if (!userId) return;
     
-    setIsLoadingProjects(true);
-    setError(null);
     try {
       const { data: projectsData, error } = await supabase
         .from('projects')
@@ -63,13 +50,6 @@ export const Projects: React.FC<ProjectsProps> = ({ className, roadmapId }) => {
     } catch (error) {
       console.error('Error loading projects:', error);
       setError('Failed to load projects. Please try again.');
-      notifications.show({
-        title: 'Error',
-        message: 'Failed to load projects',
-        color: 'red',
-      });
-    } finally {
-      setIsLoadingProjects(false);
     }
   };
 
@@ -94,12 +74,12 @@ export const Projects: React.FC<ProjectsProps> = ({ className, roadmapId }) => {
         body: JSON.stringify({
           roadmapId,
           topic: topic.trim(),
+          provider,
         }),
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to generate projects');
+        throw new Error('Failed to generate projects');
       }
 
       const data = await response.json();
@@ -119,35 +99,23 @@ export const Projects: React.FC<ProjectsProps> = ({ className, roadmapId }) => {
       
       await loadProjects();
       setTopic('');
-      notifications.show({
-        title: 'Success',
-        message: 'Projects generated successfully',
-        color: 'green',
-      });
     } catch (error) {
       console.error('Error generating projects:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Failed to generate projects';
-      setError(errorMessage);
-      notifications.show({
-        title: 'Error',
-        message: errorMessage,
-        color: 'red',
-      });
+      setError('Failed to generate projects. Please try again.');
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <Stack className={className} gap="xl">
-      <Paper shadow="xs" p="md" withBorder>
+    <Stack className={className}>
+      <Paper p="md" withBorder>
         <form onSubmit={handleGenerateProjects}>
           {!roadmapId && (
             <TextInput
               value={topic}
-              onChange={(e) => setTopic(e.target.value)}
+              onChange={(e) => setTopic(e.currentTarget.value)}
               placeholder="Enter a topic for project suggestions..."
-              label="Topic"
               disabled={isLoading}
               mb="md"
             />
@@ -163,48 +131,38 @@ export const Projects: React.FC<ProjectsProps> = ({ className, roadmapId }) => {
         </form>
       </Paper>
 
-      {error && <ErrorMessage message={error} onRetry={loadProjects} />}
+      {error && <ErrorMessage message={error} />}
 
-      {isLoadingProjects ? (
-        <Box py="xl" ta="center">
-          <Loader size="md" />
-          <Text mt="md" c="dimmed">Loading projects...</Text>
-        </Box>
-      ) : projects.length === 0 ? (
-        <Box py="xl" ta="center">
-          <Text c="dimmed">No projects yet. Generate your first project!</Text>
-        </Box>
-      ) : (
-        <Stack gap="md">
-          {projects.map((project) => (
-            <Paper key={project.id} shadow="xs" p="md" withBorder>
-              <Group justify="space-between" mb="xs">
-                <Title order={4}>{project.title}</Title>
-                <Badge
-                  color={
-                    project.difficulty === 'Beginner' ? 'green' :
-                    project.difficulty === 'Intermediate' ? 'yellow' :
-                    'red'
-                  }
-                >
-                  {project.difficulty}
-                </Badge>
-              </Group>
-              <Text mb="md" c="dimmed">
-                {project.description}
-              </Text>
-              <Box>
-                <Text fw={500} mb="xs">Implementation Plan:</Text>
-                <Paper p="sm" bg="gray.0">
-                  <ReactMarkdown className="prose">
-                    {project.implementation_plan}
-                  </ReactMarkdown>
-                </Paper>
-              </Box>
-            </Paper>
-          ))}
-        </Stack>
-      )}
+      <Stack>
+        {projects.map((project) => (
+          <Paper key={project.id} p="md" withBorder>
+            <Group justify="space-between" mb="xs">
+              <Text size="xl" fw={700}>{project.title}</Text>
+              <Badge
+                color={
+                  project.difficulty === 'Beginner' ? 'green' :
+                  project.difficulty === 'Intermediate' ? 'yellow' :
+                  'red'
+                }
+              >
+                {project.difficulty}
+              </Badge>
+            </Group>
+            <Box mb="md">
+              <Text fw={500} mb="xs">Description:</Text>
+              <Text>{project.description}</Text>
+            </Box>
+            <Box>
+              <Text fw={500} mb="xs">Implementation Plan:</Text>
+              <Paper p="sm" bg="gray.0">
+                <ReactMarkdown className="prose">
+                  {project.implementation_plan}
+                </ReactMarkdown>
+              </Paper>
+            </Box>
+          </Paper>
+        ))}
+      </Stack>
     </Stack>
   );
 }; 

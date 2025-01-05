@@ -4,6 +4,7 @@ import { ErrorMessage } from './ErrorMessage.tsx';
 import { LLMProvider } from '../services/llmService.ts';
 import { supabase } from '../lib/supabaseClient.ts';
 import ReactMarkdown from 'react-markdown';
+import { Paper, Text, TextInput, Button, Stack, Group, Badge, Box } from '@mantine/core';
 
 interface Project {
   id: string;
@@ -107,55 +108,61 @@ export const Projects: React.FC<ProjectsProps> = ({ className, provider, roadmap
   };
 
   return (
-    <div className={className}>
-      <form onSubmit={handleGenerateProjects} className="mb-6">
-        {!roadmapId && (
-          <input
-            type="text"
-            value={topic}
-            onChange={(e) => setTopic(e.target.value)}
-            placeholder="Enter a topic for project suggestions..."
-            className="w-full p-2 border rounded mb-2"
-            disabled={isLoading}
-          />
-        )}
-        <button
-          type="submit"
-          disabled={isLoading}
-          className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 disabled:bg-gray-400"
-        >
-          {isLoading ? 'Generating...' : 'Generate Projects'}
-        </button>
-      </form>
+    <Stack className={className}>
+      <Paper p="md" withBorder>
+        <form onSubmit={handleGenerateProjects}>
+          {!roadmapId && (
+            <TextInput
+              value={topic}
+              onChange={(e) => setTopic(e.currentTarget.value)}
+              placeholder="Enter a topic for project suggestions..."
+              disabled={isLoading}
+              mb="md"
+            />
+          )}
+          <Button
+            type="submit"
+            loading={isLoading}
+            disabled={!roadmapId && !topic.trim()}
+            fullWidth
+          >
+            Generate Projects
+          </Button>
+        </form>
+      </Paper>
 
       {error && <ErrorMessage message={error} />}
 
-      <div className="space-y-6">
+      <Stack>
         {projects.map((project) => (
-          <div key={project.id} className="border rounded p-4">
-            <h3 className="text-xl font-bold mb-2">{project.title}</h3>
-            <div className="mb-2">
-              <span className={`inline-block px-2 py-1 rounded text-sm ${
-                project.difficulty === 'Beginner' ? 'bg-green-100 text-green-800' :
-                project.difficulty === 'Intermediate' ? 'bg-yellow-100 text-yellow-800' :
-                'bg-red-100 text-red-800'
-              }`}>
+          <Paper key={project.id} p="md" withBorder>
+            <Group justify="space-between" mb="xs">
+              <Text size="xl" fw={700}>{project.title}</Text>
+              <Badge
+                color={
+                  project.difficulty === 'Beginner' ? 'green' :
+                  project.difficulty === 'Intermediate' ? 'yellow' :
+                  'red'
+                }
+              >
                 {project.difficulty}
-              </span>
-            </div>
-            <div className="mb-4">
-              <h4 className="font-semibold mb-1">Description:</h4>
-              <p>{project.description}</p>
-            </div>
-            <div>
-              <h4 className="font-semibold mb-1">Implementation Plan:</h4>
-              <ReactMarkdown className="prose">
-                {project.implementation_plan}
-              </ReactMarkdown>
-            </div>
-          </div>
+              </Badge>
+            </Group>
+            <Box mb="md">
+              <Text fw={500} mb="xs">Description:</Text>
+              <Text>{project.description}</Text>
+            </Box>
+            <Box>
+              <Text fw={500} mb="xs">Implementation Plan:</Text>
+              <Paper p="sm" bg="gray.0">
+                <ReactMarkdown className="prose">
+                  {project.implementation_plan}
+                </ReactMarkdown>
+              </Paper>
+            </Box>
+          </Paper>
         ))}
-      </div>
-    </div>
+      </Stack>
+    </Stack>
   );
 }; 
