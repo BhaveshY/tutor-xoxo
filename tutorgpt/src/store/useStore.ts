@@ -1,8 +1,9 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { devtools, persist } from 'zustand/middleware';
 import { supabase } from '../lib/supabaseClient.ts';
-import { EvolutionaryOptimizer, evolutionService } from '../services/evolutionService.ts';
+import { evolutionService } from '../services/evolutionService.ts';
 import { Roadmap, RoadmapMetrics, TopicMetrics } from '../types/roadmap.ts';
+import { calculateProgress, parseRoadmapContent, ProgressData, sortedOrder } from '@/pages/Progress.tsx';
 
 interface User {
   id: string;
@@ -17,25 +18,30 @@ interface Store {
   progress: RoadmapMetrics[];
   isLoading: boolean;
   emailConfirmationSent: boolean;
-  
+  progressDataStore: any;
+
+
+  updateProgressDataStore: (data: any) => void;
+  updateProgressDataOrder: (data: any) => void;
+
   // User management
   setUser: (user: User | null) => void;
   setCurrentMode: (mode: 'tutor' | 'roadmap' | 'practice' | 'progress') => void;
-  
+
   // Roadmap management
   addRoadmap: (roadmap: Roadmap) => void;
   removeRoadmap: (id: string) => void;
   clearRoadmaps: () => void;
   updateProgress: (progress: RoadmapMetrics) => void;
   getProgress: (roadmapId: string) => RoadmapMetrics | undefined;
-  
+
   // Learning metrics
   updateTopicMetrics: (roadmapId: string, topicId: string, metrics: Partial<TopicMetrics>) => void;
   getTopicMetrics: (roadmapId: string, topicId: string) => TopicMetrics | undefined;
-  
+
   // Roadmap optimization
   optimizeRoadmap: (roadmapId: string) => void;
-  
+
   // Authentication
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, name: string) => Promise<void>;
@@ -43,7 +49,7 @@ interface Store {
 }
 
 const useStore = create<Store>()(
-  persist(
+  devtools(persist(
     (set, get) => ({
       user: null,
       currentMode: 'tutor',
@@ -51,6 +57,12 @@ const useStore = create<Store>()(
       progress: [],
       isLoading: false,
       emailConfirmationSent: false,
+      progressDataStore: [],
+
+
+
+      updateProgressDataStore: (data: any) => set({ progressDataStore: data }),
+      updateProgressDataOrder: (data: any) => set({ progressDataStore: sortedOrder(data) }),
 
       setUser: (user) => set({ user }),
       setCurrentMode: (mode) => set({ currentMode: mode }),
@@ -58,12 +70,19 @@ const useStore = create<Store>()(
       addRoadmap: (roadmap) =>
         set((state) => ({
           roadmaps: [roadmap, ...state.roadmaps],
+          progressDataStore: [{
+            id: roadmap.id,
+            title: roadmap.title,
+            topics: parseRoadmapContent(roadmap.content),
+            progress: calculateProgress(parseRoadmapContent(roadmap.content)),
+          }, ...state.progressDataStore],
         })),
 
       removeRoadmap: (id) =>
         set((state) => ({
           roadmaps: state.roadmaps.filter((r) => r.id !== id),
           progress: state.progress.filter((p) => p.roadmapId !== id),
+          progressDataStore: state.progressDataStore.filter(p => p.id !== id)
         })),
 
       clearRoadmaps: () =>
@@ -101,7 +120,7 @@ const useStore = create<Store>()(
               consistencyScore: 0,
               retentionRate: 0,
             };
-            
+
             return {
               progress: [
                 ...state.progress,
@@ -140,8 +159,8 @@ const useStore = create<Store>()(
           // Update averageTimePerSubtopic
           if (newMetrics.timeSpent !== undefined) {
             const completedSubtopics = Object.values(updatedMetrics.subtopics).filter(s => s.completed).length;
-            updatedMetrics.averageTimePerSubtopic = completedSubtopics > 0 
-              ? updatedMetrics.timeSpent / completedSubtopics 
+            updatedMetrics.averageTimePerSubtopic = completedSubtopics > 0
+              ? updatedMetrics.timeSpent / completedSubtopics
               : updatedMetrics.timeSpent;
           }
 
@@ -176,11 +195,59 @@ const useStore = create<Store>()(
         return progress?.topicMetrics[topicId];
       },
 
+      // optimizeRoadmap: (roadmapId) =>
+      //   set((state) => {
+      //     const roadmap = state.roadmaps.find(r => r.id === roadmapId);
+      //     const progress = state.progressDataStore.find(p => p.id === roadmapId);
+
+      //     if (!roadmap || !progress) return state;
+
+      //     const performances = roadmap.topics.map(topic => ({
+      //       topicId: topic.id,
+      //       metrics: {
+      //         completionTime: progress.topicMetrics[topic.id]?.timeSpent || 0,
+      //         attemptsCount: progress.topicMetrics[topic.id]?.attempts || 0,
+      //         successRate: progress.topicMetrics[topic.id]?.successRate || 0,
+      //         difficultyRating: progress.topicMetrics[topic.id]?.difficulty || 0.5,
+      //         lastAttemptTimestamp: progress.topicMetrics[topic.id]?.lastAttemptTimestamp || Date.now(),
+      //         averageTimePerSubtopic: progress.topicMetrics[topic.id]?.averageTimePerSubtopic || 0,
+      //         consistencyScore: progress.topicMetrics[topic.id]?.consistencyScore || 0,
+      //         retentionRate: progress.topicMetrics[topic.id]?.retentionRate || 0,
+      //       },
+      //     }));
+
+      //     const optimizedTopics = evolutionService.optimizeRoadmap(roadmap.topics, performances);
+
+      //     // Preserve completion status of topics and subtopics
+      //     const optimizedTopicsWithStatus = optimizedTopics.map(topic => {
+      //       const originalTopic = roadmap.topics.find(t => t.id === topic.id);
+      //       return {
+      //         ...topic,
+      //         completed: originalTopic?.completed || false,
+      //         subtopics: topic.subtopics.map(subtopic => {
+      //           const originalSubtopic = originalTopic?.subtopics.find(s => s.id === subtopic.id);
+      //           return {
+      //             ...subtopic,
+      //             completed: originalSubtopic?.completed || false,
+      //           };
+      //         }),
+      //       };
+      //     });
+
+      //     return {
+      //       roadmaps: state.roadmaps.map(r =>
+      //         r.id === roadmapId
+      //           ? { ...r, topics: optimizedTopicsWithStatus }
+      //           : r
+      //       ),
+      //     };
+      //   }),
+
       optimizeRoadmap: (roadmapId) =>
         set((state) => {
           const roadmap = state.roadmaps.find(r => r.id === roadmapId);
           const progress = state.progress.find(p => p.roadmapId === roadmapId);
-          
+
           if (!roadmap || !progress) return state;
 
           const performances = roadmap.topics.map(topic => ({
@@ -279,6 +346,7 @@ const useStore = create<Store>()(
         currentMode: state.currentMode,
         roadmaps: state.roadmaps,
         progress: state.progress,
+        progressDataStore: state.progressDataStore,
       }),
       storage: {
         getItem: (name) => {
@@ -310,7 +378,7 @@ const useStore = create<Store>()(
         removeItem: (name) => localStorage.removeItem(name),
       },
     }
-  )
+  ))
 );
 
 export default useStore; 

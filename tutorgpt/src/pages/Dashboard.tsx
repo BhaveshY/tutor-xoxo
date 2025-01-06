@@ -1,16 +1,16 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { supabase } from '../lib/supabaseClient.ts';
-import { LLMSelector } from '../components/LLMSelector.tsx';
-import type { LLMProvider } from '../services/llmService.ts';
-import useStore from '../store/useStore.ts';
-import { llmService } from '../services/llmService.ts';
-import { databaseService } from '../services/databaseService.ts';
-import type { LearningRoadmap } from '../services/databaseService.ts';
-import { notifications } from '@mantine/notifications';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import Progress from './Progress.tsx';
-import type { RoadmapTopic } from '../types/roadmap.ts';
+import { useState, useEffect, useRef } from "react";
+import { supabase } from "../lib/supabaseClient.ts";
+import { LLMSelector } from "../components/LLMSelector.tsx";
+import type { LLMProvider } from "../services/llmService.ts";
+import useStore from "../store/useStore.ts";
+import { llmService } from "../services/llmService.ts";
+import { databaseService } from "../services/databaseService.ts";
+import type { LearningRoadmap } from "../services/databaseService.ts";
+import { notifications } from "@mantine/notifications";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import Progress from "./Progress.tsx";
+import type { RoadmapTopic } from "../types/roadmap.ts";
 import {
   Container,
   Paper,
@@ -25,11 +25,15 @@ import {
   Divider,
   ActionIcon,
   Tooltip,
+  // List,
   ThemeIcon,
   Badge,
   Radio,
-} from '@mantine/core';
+  // Group as RadioGroup,
+} from "@mantine/core";
+// import { Editor } from "@monaco-editor/react";
 import {
+  IconTrash,
   IconRefresh,
   IconSend,
   IconBrain,
@@ -43,9 +47,10 @@ import {
 } from '@tabler/icons-react';
 import { Projects } from '../components/Projects.tsx';
 
+
 // Types
 interface ChatMessage {
-  role: 'user' | 'assistant';
+  role: "user" | "assistant";
   content: string;
   timestamp: Date;
 }
@@ -65,11 +70,11 @@ interface PracticeQuestion {
     C: string;
     D: string;
   };
-  correct: 'A' | 'B' | 'C' | 'D';
+  correct: "A" | "B" | "C" | "D";
   explanation: string;
   selectedAnswer?: string;
   isCorrect?: boolean;
-  difficulty: 'easy' | 'medium' | 'hard';
+  difficulty: "easy" | "medium" | "hard";
 }
 
 interface SavedRoadmap {
@@ -91,24 +96,26 @@ interface PracticeStats {
 type RoadmapItem = SavedRoadmap;
 
 const parseRoadmapContent = (content: string): RoadmapTopic[] => {
-  const lines = content.split('\n');
+  const lines = content.split("\n");
   const topics: RoadmapTopic[] = [];
   let currentTopic: RoadmapTopic | null = null;
 
-  lines.forEach(line => {
-    if (line.startsWith('## Milestone')) {
+  lines.forEach((line) => {
+    if (line.startsWith("## Milestone")) {
       if (currentTopic) {
         topics.push(currentTopic);
       }
-      const title = line.replace('## Milestone', '').trim().split(':')[1]?.trim() || 'Untitled';
+      const title =
+        line.replace("## Milestone", "").trim().split(":")[1]?.trim() ||
+        "Untitled";
       currentTopic = {
         id: Date.now().toString() + Math.random(),
         title,
         subtopics: [],
         completed: false,
       };
-    } else if (line.startsWith('- ') && currentTopic) {
-      const title = line.replace('- ', '').trim();
+    } else if (line.startsWith("- ") && currentTopic) {
+      const title = line.replace("- ", "").trim();
       currentTopic.subtopics.push({
         id: Date.now().toString() + Math.random(),
         title,
@@ -126,27 +133,40 @@ const parseRoadmapContent = (content: string): RoadmapTopic[] => {
 
 const getModelLabel = (model: LLMProvider): string => {
   switch (model) {
-    case 'openai/gpt-4-turbo-preview':
-      return 'GPT-4 Turbo';
-    case 'groq/grok-2-1212':
-      return 'Grok-2';
-    case 'anthropic/claude-3-5-sonnet-20241022':
-      return 'Claude 3 Sonnet';
+    case "openai/gpt-4-turbo-preview":
+      return "GPT-4 Turbo";
+    case "groq/grok-2-1212":
+      return "Grok-2";
+    case "anthropic/claude-3-5-sonnet-20241022":
+      return "Claude 3 Sonnet";
     default:
-      return 'Unknown Model';
+      return "Unknown Model";
   }
 };
 
 const Dashboard = () => {
-  const { currentMode, user, addRoadmap, roadmaps, removeRoadmap, clearRoadmaps } = useStore();
-  const [userInput, setUserInput] = useState('');
+  const {
+    currentMode,
+    user,
+    addRoadmap,
+    roadmaps,
+    removeRoadmap,
+    clearRoadmaps,
+  } = useStore();
+  const [userInput, setUserInput] = useState("");
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [savedQuestions, setSavedQuestions] = useState<SavedQuestion[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedSubject, setSelectedSubject] = useState<string | null>(null);
-  const [selectedRoadmap, setSelectedRoadmap] = useState<SavedRoadmap | null>(null);
-  const [practiceQuestions, setPracticeQuestions] = useState<PracticeQuestion[]>([]);
-  const [showExplanation, setShowExplanation] = useState<Record<string, boolean>>({});
+  const [selectedRoadmap, setSelectedRoadmap] = useState<SavedRoadmap | null>(
+    null
+  );
+  const [practiceQuestions, setPracticeQuestions] = useState<
+    PracticeQuestion[]
+  >([]);
+  const [showExplanation, setShowExplanation] = useState<
+    Record<string, boolean>
+  >({});
   const chatBoxRef = useRef<HTMLDivElement>(null);
   const [practiceStats, setPracticeStats] = useState<PracticeStats>({
     total: 0,
@@ -158,36 +178,41 @@ const Dashboard = () => {
   const [selectedModel, setSelectedModel] = useState<LLMProvider>('openai/gpt-4-turbo-preview');
   const [mode, setMode] = useState<'tutor' | 'roadmap' | 'practice' | 'projects'>('tutor');
 
+
   // Load roadmaps when user logs in
   useEffect(() => {
     const loadRoadmaps = async () => {
       if (!user?.id) return;
-      
+
       try {
-        clearRoadmaps();
+        // clearRoadmaps();
         const roadmapsData = await databaseService.getRoadmaps(user.id);
-        roadmapsData.forEach(roadmap => {
+        roadmapsData.forEach((roadmap) => {
           addRoadmap({
             id: roadmap.id,
             title: roadmap.title,
             content: roadmap.content,
             timestamp: new Date(roadmap.created_at),
             topics: [],
-            progress: 0
+            progress: 0,
           });
         });
       } catch (error) {
-        console.error('Error loading roadmaps:', error);
+        console.error("Error loading roadmaps:", error);
         notifications.show({
-          title: 'Error',
-          message: 'Failed to load roadmaps',
-          color: 'red',
+          title: "Error",
+          message: "Failed to load roadmaps",
+          color: "red",
         });
       }
     };
 
     loadRoadmaps();
-  }, [user?.id, addRoadmap, clearRoadmaps]);
+  }, [
+    user?.id,
+    addRoadmap,
+    // clearRoadmaps
+  ]);
 
   useEffect(() => {
     if (chatBoxRef.current) {
@@ -196,22 +221,22 @@ const Dashboard = () => {
   }, [chatHistory]);
 
   const subjects = [
-    'Mathematics',
-    'Physics',
-    'Chemistry',
-    'Biology',
-    'Computer Science',
-    'History',
-    'Literature',
-    'General Knowledge',
+    "Mathematics",
+    "Physics",
+    "Chemistry",
+    "Biology",
+    "Computer Science",
+    "History",
+    "Literature",
+    "General Knowledge",
   ];
 
   const handleSubmit = async () => {
     if (!userInput.trim()) {
       notifications.show({
-        title: 'Error',
-        message: 'Please enter your question',
-        color: 'red',
+        title: "Error",
+        message: "Please enter your question",
+        color: "red",
       });
       return;
     }
@@ -220,16 +245,16 @@ const Dashboard = () => {
     try {
       // Add user message to chat
       const userMessage: ChatMessage = {
-        role: 'user',
+        role: "user",
         content: userInput,
         timestamp: new Date(),
       };
-      setChatHistory(prev => [...prev, userMessage]);
+      setChatHistory((prev) => [...prev, userMessage]);
 
       // Get AI response with chat history
       const result = await llmService.generateTutorResponse(
-        `[Subject: ${selectedSubject || 'General'}] ${userInput}`,
-        chatHistory.map(msg => ({ role: msg.role, content: msg.content })),
+        `[Subject: ${selectedSubject || "General"}] ${userInput}`,
+        chatHistory.map((msg) => ({ role: msg.role, content: msg.content })),
         selectedModel
       );
 
@@ -239,25 +264,28 @@ const Dashboard = () => {
 
       // Add AI response to chat
       const aiMessage: ChatMessage = {
-        role: 'assistant',
+        role: "assistant",
         content: result.content,
         timestamp: new Date(),
       };
-      setChatHistory(prev => [...prev, aiMessage]);
+      setChatHistory((prev) => [...prev, aiMessage]);
 
       // Clear input
-      setUserInput('');
+      setUserInput("");
 
       notifications.show({
-        title: 'Success',
-        message: 'Response generated successfully',
-        color: 'green',
+        title: "Success",
+        message: "Response generated successfully",
+        color: "green",
       });
     } catch (error) {
       notifications.show({
-        title: 'Error',
-        message: error instanceof Error ? error.message : 'Failed to generate response',
-        color: 'red',
+        title: "Error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Failed to generate response",
+        color: "red",
       });
     } finally {
       setIsLoading(false);
@@ -271,11 +299,11 @@ const Dashboard = () => {
       question: userInput,
       timestamp: new Date(),
     };
-    setSavedQuestions(prev => [...prev, newQuestion]);
+    setSavedQuestions((prev) => [...prev, newQuestion]);
     notifications.show({
-      title: 'Success',
-      message: 'Question saved successfully',
-      color: 'green',
+      title: "Success",
+      message: "Question saved successfully",
+      color: "green",
     });
   };
 
@@ -286,18 +314,18 @@ const Dashboard = () => {
   const clearChat = () => {
     setChatHistory([]);
     notifications.show({
-      title: 'Success',
-      message: 'Chat history cleared',
-      color: 'blue',
+      title: "Success",
+      message: "Chat history cleared",
+      color: "blue",
     });
   };
 
   const handleRoadmapSubmit = async () => {
     if (!userInput.trim()) {
       notifications.show({
-        title: 'Error',
-        message: 'Please describe your learning goals',
-        color: 'red',
+        title: "Error",
+        message: "Please describe your learning goals",
+        color: "red",
       });
       return;
     }
@@ -320,17 +348,18 @@ const Dashboard = () => {
         timestamp: new Date(),
       });
 
-      setUserInput('');
+      setUserInput("");
       notifications.show({
-        title: 'Success',
-        message: 'Roadmap generated successfully',
-        color: 'green',
+        title: "Success",
+        message: "Roadmap generated successfully",
+        color: "green",
       });
     } catch (error) {
       notifications.show({
-        title: 'Error',
-        message: error instanceof Error ? error.message : 'Failed to generate roadmap',
-        color: 'red',
+        title: "Error",
+        message:
+          error instanceof Error ? error.message : "Failed to generate roadmap",
+        color: "red",
       });
     } finally {
       setIsLoading(false);
@@ -340,9 +369,9 @@ const Dashboard = () => {
   const handleStartPractice = async () => {
     if (!userInput.trim()) {
       notifications.show({
-        title: 'Error',
-        message: 'Please enter a topic for practice',
-        color: 'red',
+        title: "Error",
+        message: "Please enter a topic for practice",
+        color: "red",
       });
       return;
     }
@@ -351,8 +380,8 @@ const Dashboard = () => {
     try {
       const result = await llmService.generatePracticeQuestions({
         prompt: userInput,
-        difficulty: selectedDifficulty as 'easy' | 'medium' | 'hard',
-        provider: selectedModel
+        difficulty: selectedDifficulty as "easy" | "medium" | "hard",
+        provider: selectedModel,
       });
 
       if (result.error) {
@@ -361,7 +390,7 @@ const Dashboard = () => {
 
       const questions = JSON.parse(result.content);
       setPracticeQuestions(questions);
-      setUserInput('');
+      setUserInput("");
       setPracticeStats({
         total: questions.length,
         correct: 0,
@@ -370,9 +399,12 @@ const Dashboard = () => {
       });
     } catch (error) {
       notifications.show({
-        title: 'Error',
-        message: error instanceof Error ? error.message : 'Failed to generate practice questions',
-        color: 'red',
+        title: "Error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Failed to generate practice questions",
+        color: "red",
       });
     } finally {
       setIsLoading(false);
@@ -380,12 +412,13 @@ const Dashboard = () => {
   };
 
   const handleAnswerSubmit = (questionId: string, selectedAnswer: string) => {
-    setPracticeQuestions(prev =>
-      prev.map(q => {
+    setPracticeQuestions((prev) =>
+      prev.map((q) => {
         if (q.id === questionId) {
-          const isCorrect = selectedAnswer.toUpperCase() === q.correct.toUpperCase();
-          
-          setPracticeStats(stats => ({
+          const isCorrect =
+            selectedAnswer.toUpperCase() === q.correct.toUpperCase();
+
+          setPracticeStats((stats) => ({
             total: stats.total + 1,
             correct: stats.correct + (isCorrect ? 1 : 0),
             incorrect: stats.incorrect + (isCorrect ? 0 : 1),
@@ -401,15 +434,15 @@ const Dashboard = () => {
         return q;
       })
     );
-    setShowExplanation(prev => ({ ...prev, [questionId]: true }));
+    setShowExplanation((prev) => ({ ...prev, [questionId]: true }));
   };
 
   const handleModelChange = (model: LLMProvider) => {
     setSelectedModel(model);
     notifications.show({
-      title: 'Model Changed',
+      title: "Model Changed",
       message: `Switched to ${getModelLabel(model)}`,
-      color: 'blue',
+      color: "blue",
     });
   };
 
@@ -417,16 +450,16 @@ const Dashboard = () => {
     try {
       await supabase.auth.signOut();
       notifications.show({
-        title: 'Success',
-        message: 'Signed out successfully',
-        color: 'blue',
+        title: "Success",
+        message: "Signed out successfully",
+        color: "blue",
       });
     } catch (error) {
-      console.error('Error signing out:', error);
+      console.error("Error signing out:", error);
       notifications.show({
-        title: 'Error',
-        message: 'Failed to sign out',
-        color: 'red',
+        title: "Error",
+        message: "Failed to sign out",
+        color: "red",
       });
     }
   };
@@ -435,45 +468,48 @@ const Dashboard = () => {
     try {
       if (!user?.id) {
         notifications.show({
-          title: 'Error',
-          message: 'You must be logged in to save a roadmap',
-          color: 'red',
+          title: "Error",
+          message: "You must be logged in to save a roadmap",
+          color: "red",
         });
         return;
       }
 
-      const newRoadmap: Omit<LearningRoadmap, 'id' | 'created_at' | 'updated_at'> = {
+      const newRoadmap: Omit<
+        LearningRoadmap,
+        "id" | "created_at" | "updated_at"
+      > = {
         user_id: user.id,
         title: `Learning Roadmap - ${selectedSubject}`,
         content: chatHistory[chatHistory.length - 1].content,
-        provider: selectedModel
+        provider: selectedModel,
       };
-      
+
       const savedRoadmap = await databaseService.createRoadmap(newRoadmap);
-      
+
       const roadmapWithTopics: SavedRoadmap = {
         id: savedRoadmap.id,
         title: savedRoadmap.title,
         content: savedRoadmap.content,
         timestamp: new Date(savedRoadmap.created_at),
         topics: [],
-        progress: 0
+        progress: 0,
       };
-      
+
       addRoadmap(roadmapWithTopics);
       setSelectedRoadmap(roadmapWithTopics);
-      
+
       notifications.show({
-        title: 'Success',
-        message: 'Roadmap saved successfully',
-        color: 'green',
+        title: "Success",
+        message: "Roadmap saved successfully",
+        color: "green",
       });
     } catch (error) {
-      console.error('Error saving roadmap:', error);
+      console.error("Error saving roadmap:", error);
       notifications.show({
-        title: 'Error',
-        message: 'Failed to save roadmap',
-        color: 'red',
+        title: "Error",
+        message: "Failed to save roadmap",
+        color: "red",
       });
     }
   };
@@ -482,7 +518,7 @@ const Dashboard = () => {
     const roadmapWithTopics: SavedRoadmap = {
       ...roadmap,
       topics: roadmap.topics || [],
-      progress: roadmap.progress || 0
+      progress: roadmap.progress || 0,
     };
     setSelectedRoadmap(roadmapWithTopics);
   };
@@ -506,24 +542,31 @@ const Dashboard = () => {
           <Paper p="md" withBorder>
             <Stack gap="md">
               <MantineGroup justify="space-between">
-                <Text size="lg" fw={500}>Chat</Text>
+                <Text size="lg" fw={500}>
+                  Chat
+                </Text>
                 <Tooltip label="Clear chat">
                   <ActionIcon variant="light" onClick={clearChat}>
                     <IconRefresh size={20} />
                   </ActionIcon>
                 </Tooltip>
               </MantineGroup>
-              <Box ref={chatBoxRef} style={{ height: '400px', overflowY: 'auto' }}>
+              <Box
+                ref={chatBoxRef}
+                style={{ height: "400px", overflowY: "auto" }}
+              >
                 {chatHistory.map((message, index) => (
                   <Paper
                     key={index}
                     p="md"
                     mb="sm"
-                    bg={message.role === 'user' ? 'gray.1' : 'blue.1'}
+                    bg={message.role === "user" ? "gray.1" : "blue.1"}
                   >
                     <Text size="sm" c="dimmed" mb="xs">
-                      {message.role === 'user' ? user?.name || 'You' : 'AI Tutor'} •{' '}
-                      {message.timestamp.toLocaleTimeString()}
+                      {message.role === "user"
+                        ? user?.name || "You"
+                        : "AI Tutor"}{" "}
+                      • {message.timestamp.toLocaleTimeString()}
                     </Text>
                     <Box className="markdown-content">
                       <ReactMarkdown remarkPlugins={[remarkGfm]}>
@@ -574,7 +617,9 @@ const Dashboard = () => {
           <Paper p="md" withBorder>
             <Stack gap="md">
               <MantineGroup justify="space-between">
-                <Text size="lg" fw={500}>Saved Questions</Text>
+                <Text size="lg" fw={500}>
+                  Saved Questions
+                </Text>
                 <IconBrain size={20} />
               </MantineGroup>
               <Divider />
@@ -588,7 +633,7 @@ const Dashboard = () => {
                     key={q.id}
                     p="xs"
                     withBorder
-                    style={{ cursor: 'pointer' }}
+                    style={{ cursor: "pointer" }}
                     onClick={() => handleLoadQuestion(q)}
                   >
                     <Text size="sm" lineClamp={2}>
@@ -646,7 +691,7 @@ const Dashboard = () => {
                   onClick={handleRoadmapSubmit}
                   loading={isLoading}
                   variant="gradient"
-                  gradient={{ from: 'blue', to: 'cyan' }}
+                  gradient={{ from: "blue", to: "cyan" }}
                 >
                   Generate Roadmap
                 </Button>
@@ -659,58 +704,72 @@ const Dashboard = () => {
               <Stack gap="md">
                 <MantineGroup justify="apart">
                   <Stack gap={0}>
-                    <Text size="lg" fw={600}>{selectedRoadmap.title}</Text>
+                    <Text size="lg" fw={600}>
+                      {selectedRoadmap.title}
+                    </Text>
                     <Text size="sm" c="dimmed">
-                      Created on {selectedRoadmap.timestamp instanceof Date 
+                      Created on{" "}
+                      {selectedRoadmap.timestamp instanceof Date
                         ? selectedRoadmap.timestamp.toLocaleDateString()
-                        : new Date(selectedRoadmap.timestamp).toLocaleDateString()}
+                        : new Date(
+                            selectedRoadmap.timestamp
+                          ).toLocaleDateString()}
                     </Text>
                   </Stack>
                   <MantineGroup>
-                    <Button 
-                      variant="light" 
-                      color="red" 
+                    <Button
+                      variant="light"
+                      color="red"
                       size="sm"
                       onClick={async () => {
-                        try {
-                          await databaseService.deleteRoadmap(selectedRoadmap.id);
-                          removeRoadmap(selectedRoadmap.id);
-                          setSelectedRoadmap(null);
-                          notifications.show({
-                            title: 'Success',
-                            message: 'Roadmap deleted successfully',
-                            color: 'green',
-                          });
-                        } catch (error) {
-                          console.error('Error deleting roadmap:', error);
-                          notifications.show({
-                            title: 'Error',
-                            message: 'Failed to delete roadmap',
-                            color: 'red',
-                          });
-                        }
+                        // try {
+                        //   await databaseService.deleteRoadmap(
+                        //     selectedRoadmap.id
+                        //   );
+                        //   setSelectedRoadmap(null);
+                        //   removeRoadmap(selectedRoadmap.id);
+                        //   // removeRoadmap(selectedRoadmap.id);
+                        //   notifications.show({
+                        //     title: "Success",
+                        //     message: "Roadmap deleted successfully",
+                        //     color: "green",
+                        //   });
+                        // } catch (error) {
+                        //   console.error("Error deleting roadmap:", error);
+                        //   notifications.show({
+                        //     title: "Error",
+                        //     message: "Failed to delete roadmap",
+                        //     color: "red",
+                        //   });
+                        // }
+                        setSelectedRoadmap(null);
+                        removeRoadmap(selectedRoadmap.id);
                       }}
                     >
                       Delete
                     </Button>
-                    <Button 
-                      variant="light" 
+                    <Button
+                      variant="light"
                       size="sm"
                       onClick={() => {
                         const content = `# ${selectedRoadmap.title}\n\n${selectedRoadmap.content}`;
-                        const blob = new Blob([content], { type: 'text/markdown' });
+                        const blob = new Blob([content], {
+                          type: "text/markdown",
+                        });
                         const url = URL.createObjectURL(blob);
-                        const a = document.createElement('a');
+                        const a = document.createElement("a");
                         a.href = url;
-                        a.download = `roadmap-${selectedRoadmap.title.toLowerCase().replace(/\s+/g, '-')}.md`;
+                        a.download = `roadmap-${selectedRoadmap.title
+                          .toLowerCase()
+                          .replace(/\s+/g, "-")}.md`;
                         document.body.appendChild(a);
                         a.click();
                         document.body.removeChild(a);
                         URL.revokeObjectURL(url);
                         notifications.show({
-                          title: 'Success',
-                          message: 'Roadmap downloaded successfully',
-                          color: 'green',
+                          title: "Success",
+                          message: "Roadmap downloaded successfully",
+                          color: "green",
                         });
                       }}
                     >
@@ -718,7 +777,13 @@ const Dashboard = () => {
                     </Button>
                   </MantineGroup>
                 </MantineGroup>
-                <Box className="markdown-content" style={{ maxHeight: 'calc(100vh - 400px)', overflowY: 'auto' }}>
+                <Box
+                  className="markdown-content"
+                  style={{
+                    maxHeight: "calc(100vh - 400px)",
+                    overflowY: "auto",
+                  }}
+                >
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>
                     {selectedRoadmap.content}
                   </ReactMarkdown>
@@ -753,9 +818,12 @@ const Dashboard = () => {
                       key={roadmap.id}
                       p="sm"
                       withBorder
-                      style={{ 
-                        cursor: 'pointer',
-                        backgroundColor: selectedRoadmap?.id === roadmap.id ? 'var(--mantine-color-blue-light)' : undefined
+                      style={{
+                        cursor: "pointer",
+                        backgroundColor:
+                          selectedRoadmap?.id === roadmap.id
+                            ? "var(--mantine-color-blue-light)"
+                            : undefined,
                       }}
                       onClick={() => handleRoadmapClick(roadmap)}
                     >
@@ -765,13 +833,37 @@ const Dashboard = () => {
                         </Text>
                         <MantineGroup justify="apart">
                           <Text size="xs" c="dimmed">
-                            {roadmap.timestamp instanceof Date 
+                            {roadmap.timestamp instanceof Date
                               ? roadmap.timestamp.toLocaleDateString()
-                              : new Date(roadmap.timestamp).toLocaleDateString()}
+                              : new Date(
+                                  roadmap.timestamp
+                                ).toLocaleDateString()}
                           </Text>
                           <Badge size="sm" variant="light">
-                            {roadmap.content.split('\n').filter((line: string) => line.trim().startsWith('- ')).length} steps
+                            {
+                              roadmap.content
+                                .split("\n")
+                                // .filter(((line: string)) => line.trim().startsWith("- "))
+                                .filter((line: string) =>
+                                  line.trim().startsWith("- ")
+                                ).length
+                            }{" "}
+                            steps
                           </Badge>
+                          {/* <ActionIcon
+                            variant="light"
+                            onClick={() => {
+                              setSelectedRoadmap(null);
+                              removeRoadmap(roadmap.id);
+                              notifications.show({
+                                title: "Success",
+                                message: "Roadmap deleted successfully",
+                                color: "green",
+                              });
+                            }}
+                          >
+                            <IconTrash size={20} />
+                          </ActionIcon> */}
                         </MantineGroup>
                       </MantineGroup>
                     </Paper>
@@ -801,12 +893,12 @@ const Dashboard = () => {
           <Select
             placeholder="Difficulty"
             data={[
-              { value: 'easy', label: 'Easy' },
-              { value: 'medium', label: 'Medium' },
-              { value: 'hard', label: 'Hard' },
+              { value: "easy", label: "Easy" },
+              { value: "medium", label: "Medium" },
+              { value: "hard", label: "Hard" },
             ]}
             value={selectedDifficulty}
-            onChange={(value) => setSelectedDifficulty(value || 'medium')}
+            onChange={(value) => setSelectedDifficulty(value || "medium")}
             style={{ width: 120 }}
           />
         </MantineGroup>
@@ -820,7 +912,9 @@ const Dashboard = () => {
                 <IconBrain size={20} />
               </ThemeIcon>
               <div>
-                <Text size="sm" c="dimmed">Total Questions</Text>
+                <Text size="sm" c="dimmed">
+                  Total Questions
+                </Text>
                 <Text fw={500}>{practiceStats.total}</Text>
               </div>
             </MantineGroup>
@@ -829,7 +923,9 @@ const Dashboard = () => {
                 <IconCheck size={20} />
               </ThemeIcon>
               <div>
-                <Text size="sm" c="dimmed">Correct</Text>
+                <Text size="sm" c="dimmed">
+                  Correct
+                </Text>
                 <Text fw={500}>{practiceStats.correct}</Text>
               </div>
             </MantineGroup>
@@ -838,7 +934,9 @@ const Dashboard = () => {
                 <IconX size={20} />
               </ThemeIcon>
               <div>
-                <Text size="sm" c="dimmed">Incorrect</Text>
+                <Text size="sm" c="dimmed">
+                  Incorrect
+                </Text>
                 <Text fw={500}>{practiceStats.incorrect}</Text>
               </div>
             </MantineGroup>
@@ -847,14 +945,20 @@ const Dashboard = () => {
                 <IconArrowRight size={20} />
               </ThemeIcon>
               <div>
-                <Text size="sm" c="dimmed">Current Streak</Text>
+                <Text size="sm" c="dimmed">
+                  Current Streak
+                </Text>
                 <Text fw={500}>{practiceStats.streak}</Text>
               </div>
             </MantineGroup>
             <Text size="sm" c="dimmed">
-              Accuracy: {practiceStats.total > 0 
-                ? Math.round((practiceStats.correct / practiceStats.total) * 100)
-                : 0}%
+              Accuracy:{" "}
+              {practiceStats.total > 0
+                ? Math.round(
+                    (practiceStats.correct / practiceStats.total) * 100
+                  )
+                : 0}
+              %
             </Text>
           </MantineGroup>
         </Paper>
@@ -876,7 +980,7 @@ const Dashboard = () => {
               onClick={handleStartPractice}
               loading={isLoading}
               variant="gradient"
-              gradient={{ from: 'blue', to: 'cyan' }}
+              gradient={{ from: "blue", to: "cyan" }}
             >
               Generate Questions
             </Button>
@@ -887,24 +991,30 @@ const Dashboard = () => {
       {practiceQuestions.length > 0 && (
         <Stack gap="md">
           {practiceQuestions.map((question, index) => (
-            <Paper 
-              key={question.id} 
-              p="md" 
+            <Paper
+              key={question.id}
+              p="md"
               withBorder
-              shadow={question.selectedAnswer ? 'sm' : 'md'}
+              shadow={question.selectedAnswer ? "sm" : "md"}
               style={{
-                transition: 'all 0.3s ease',
-                transform: question.selectedAnswer ? 'scale(0.99)' : 'scale(1)',
+                transition: "all 0.3s ease",
+                transform: question.selectedAnswer ? "scale(0.99)" : "scale(1)",
               }}
             >
               <Stack gap="sm">
                 <MantineGroup justify="space-between">
                   <MantineGroup>
                     <ThemeIcon
-                      color={question.isCorrect === undefined ? 'blue' : question.isCorrect ? 'green' : 'red'}
+                      color={
+                        question.isCorrect === undefined
+                          ? "blue"
+                          : question.isCorrect
+                          ? "green"
+                          : "red"
+                      }
                       variant="light"
                       size="lg"
-                      style={{ transition: 'all 0.3s ease' }}
+                      style={{ transition: "all 0.3s ease" }}
                     >
                       {question.isCorrect === undefined ? (
                         <IconArrowRight size={20} />
@@ -916,22 +1026,26 @@ const Dashboard = () => {
                     </ThemeIcon>
                     <Text fw={500}>Question {index + 1}</Text>
                   </MantineGroup>
-                  <Badge 
+                  <Badge
                     color={
-                      question.difficulty === 'easy' ? 'green' : 
-                      question.difficulty === 'medium' ? 'yellow' : 
-                      'red'
+                      question.difficulty === "easy"
+                        ? "green"
+                        : question.difficulty === "medium"
+                        ? "yellow"
+                        : "red"
                     }
                   >
                     {question.difficulty}
                   </Badge>
                 </MantineGroup>
-                
+
                 <Text size="lg">{question.question}</Text>
 
                 <Radio.Group
-                  value={question.selectedAnswer || ''}
-                  onChange={(value: string) => handleAnswerSubmit(question.id, value)}
+                  value={question.selectedAnswer || ""}
+                  onChange={(value: string) =>
+                    handleAnswerSubmit(question.id, value)
+                  }
                 >
                   <Stack gap="xs">
                     {Object.entries(question.options).map(([key, value]) => (
@@ -943,16 +1057,20 @@ const Dashboard = () => {
                         color={
                           question.selectedAnswer === key
                             ? question.isCorrect
-                              ? 'green'
-                              : 'red'
-                            : question.selectedAnswer !== undefined && key === question.correct
-                            ? 'green'
+                              ? "green"
+                              : "red"
+                            : question.selectedAnswer !== undefined &&
+                              key === question.correct
+                            ? "green"
                             : undefined
                         }
                         styles={{
                           radio: {
-                            transition: 'all 0.3s ease',
-                            transform: question.selectedAnswer === key ? 'scale(1.05)' : 'scale(1)',
+                            transition: "all 0.3s ease",
+                            transform:
+                              question.selectedAnswer === key
+                                ? "scale(1.05)"
+                                : "scale(1)",
                           },
                         }}
                       />
@@ -961,18 +1079,22 @@ const Dashboard = () => {
                 </Radio.Group>
 
                 {showExplanation[question.id] && (
-                  <Paper 
-                    p="sm" 
+                  <Paper
+                    p="sm"
                     bg="gray.0"
                     style={{
-                      animation: 'fadeIn 0.5s ease-in-out',
+                      animation: "fadeIn 0.5s ease-in-out",
                     }}
                   >
                     <Stack gap="xs">
-                      <Text size="sm" fw={500} c={question.isCorrect ? 'green' : 'red'}>
-                        {question.isCorrect ? '✨ Correct!' : '❌ Incorrect'}
+                      <Text
+                        size="sm"
+                        fw={500}
+                        c={question.isCorrect ? "green" : "red"}
+                      >
+                        {question.isCorrect ? "✨ Correct!" : "❌ Incorrect"}
                       </Text>
-                      
+
                       <Text size="sm" fw={500}>
                         Explanation:
                       </Text>
@@ -1008,6 +1130,7 @@ const Dashboard = () => {
               color="blue"
               onClick={() => setMode('tutor')}
               title="Chat with Tutor"
+
             >
               <IconBrain size={20} />
             </ActionIcon>
@@ -1049,8 +1172,9 @@ const Dashboard = () => {
       {mode === 'roadmap' && renderRoadmapMode()}
       {mode === 'practice' && renderPracticeMode()}
       {mode === 'projects' && renderProjectsMode()}
+
     </Container>
   );
 };
 
-export default Dashboard; 
+export default Dashboard;
