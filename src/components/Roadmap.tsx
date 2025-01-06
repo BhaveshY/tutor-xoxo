@@ -6,6 +6,7 @@ import { ErrorMessage } from './ErrorMessage.tsx';
 import { Projects } from './Projects.tsx';
 import ReactMarkdown from 'react-markdown';
 import { LLMProvider } from "../services/llmService.ts";
+import { Paper, Text, TextInput, Button, Stack, Group, Loader, Box } from '@mantine/core';
 
 interface RoadmapProps {
   className?: string;
@@ -64,67 +65,54 @@ export const Roadmap: React.FC<RoadmapProps> = ({ className, provider }) => {
 
   if (isLoadingRoadmaps) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500" />
-      </div>
+      <Box py="xl" ta="center">
+        <Loader size="md" />
+        <Text mt="md" c="dimmed">Loading roadmaps...</Text>
+      </Box>
     );
   }
 
   return (
-    <div className={`space-y-6 ${className}`}>
+    <Stack className={className}>
       {error && <ErrorMessage message={error} onRetry={loadRoadmaps} />}
       
-      <form onSubmit={handleGenerateRoadmap} className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Topic</label>
-          <input
-            type="text"
-            value={topic}
-            onChange={(e) => setTopic(e.target.value)}
-            placeholder="Enter a topic to generate a learning roadmap..."
-            className="mt-1 block w-full p-2 border rounded-lg"
-            disabled={isLoading}
-          />
-        </div>
-        <button
-          type="submit"
-          disabled={isLoading || !topic.trim()}
-          className="w-full px-4 py-2 bg-blue-500 text-white rounded-lg disabled:opacity-50 hover:bg-blue-600 transition-colors"
-        >
-          {isLoading ? (
-            <div className="flex items-center justify-center space-x-2">
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
-              <span>Generating...</span>
-            </div>
-          ) : (
-            'Generate Roadmap'
-          )}
-        </button>
-      </form>
+      <Paper p="md" withBorder>
+        <form onSubmit={handleGenerateRoadmap}>
+          <Stack gap="md">
+            <TextInput
+              label="Topic"
+              value={topic}
+              onChange={(e) => setTopic(e.currentTarget.value)}
+              placeholder="Enter a topic to generate a learning roadmap..."
+              disabled={isLoading}
+            />
+            <Button
+              type="submit"
+              loading={isLoading}
+              disabled={!topic.trim()}
+              fullWidth
+            >
+              Generate Roadmap
+            </Button>
+          </Stack>
+        </form>
+      </Paper>
 
-      {roadmaps.length > 0 ? (
-        <div className="mt-8">
-          <h2 className="text-xl font-semibold mb-4">Your Learning Roadmaps</h2>
-          <div className="space-y-6">
-            {roadmaps.map((roadmap) => (
-              <div key={roadmap.id} className="border rounded p-4">
-                <h3 className="text-xl font-bold mb-2">{roadmap.title}</h3>
-                <ReactMarkdown className="prose mb-4">
+      {roadmaps.length > 0 && (
+        <Stack gap="md">
+          {roadmaps.map((roadmap) => (
+            <Paper key={roadmap.id} p="md" withBorder>
+              <Stack gap="md">
+                <Text size="lg" fw={700}>{roadmap.title}</Text>
+                <ReactMarkdown className="prose">
                   {roadmap.content}
                 </ReactMarkdown>
-                <div className="mt-4">
-                  <h4 className="text-lg font-semibold mb-2">Project Suggestions</h4>
-                  <Projects provider={provider} roadmapId={roadmap.id} />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      ) : (
-        <div className="text-center text-gray-500 mt-8">
-          No roadmaps yet. Generate your first learning roadmap!
-        </div>
+                <Projects provider={provider} roadmapId={roadmap.id} />
+              </Stack>
+            </Paper>
+          ))}
+        </Stack>
       )}
-    </div>
+    </Stack>
   );
 }; 

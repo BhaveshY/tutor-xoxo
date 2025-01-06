@@ -1,52 +1,59 @@
-import { useState, useEffect, useRef } from "react";
-import { supabase } from "../lib/supabaseClient.ts";
-import { LLMSelector } from "../components/LLMSelector.tsx";
-import type { LLMProvider } from "../services/llmService.ts";
-import useStore from "../store/useStore.ts";
-import { llmService } from "../services/llmService.ts";
-import { databaseService } from "../services/databaseService.ts";
-import type { LearningRoadmap } from "../services/databaseService.ts";
-import { notifications } from "@mantine/notifications";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
-import Progress from "./Progress.tsx";
-import type { RoadmapTopic } from "../types/roadmap.ts";
-import {
-  Container,
-  Paper,
-  Text,
-  Textarea,
-  Button,
-  Stack,
-  Title,
-  Group as MantineGroup,
-  Select,
-  Box,
-  Divider,
-  ActionIcon,
-  Tooltip,
-  // List,
-  ThemeIcon,
-  Badge,
-  Radio,
-  // Group as RadioGroup,
-} from "@mantine/core";
-// import { Editor } from "@monaco-editor/react";
-import {
-  IconTrash,
+import React, { useEffect, useRef, useState } from 'react';
+import { useAuth } from '../hooks/useAuth.ts';
+import useStore from '../store/useStore.ts';
+import { llmService, LLMProvider } from '../services/llmService.ts';
+import { databaseService, LearningRoadmap } from '../services/databaseService.ts';
+import { supabase } from '../lib/supabaseClient.ts';
+import { Projects } from '../components/Projects.tsx';
+import Progress from './Progress.tsx';
+import { LLMSelector } from '../components/LLMSelector.tsx';
+import { notifications } from '@mantine/notifications';
+import { 
+  ActionIcon, 
+  Badge, 
+  Box, 
+  Button, 
+  Container, 
+  Divider, 
+  Group as MantineGroup, 
+  Paper, 
+  Radio, 
+  Select, 
+  Stack, 
+  Text, 
+  Textarea, 
+  ThemeIcon, 
+  Title, 
+  Tooltip 
+} from '@mantine/core';
+import { 
+  IconArrowRight,
+  IconBookmark,
+  IconBrain,
+  IconChartBar,
+  IconCheck,
+  IconListCheck,
+  IconLogout,
+  IconMap,
   IconRefresh,
   IconSend,
-  IconBrain,
-  IconBookmark,
-  IconMap,
-  IconListCheck,
-  IconArrowRight,
-  IconCheck,
-  IconX,
-  IconLogout,
+  IconX
 } from '@tabler/icons-react';
-import { Projects } from '../components/Projects.tsx';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
+interface RoadmapTopic {
+  id: string;
+  title: string;
+  subtopics: RoadmapSubtopic[];
+  completed: boolean;
+}
+
+interface RoadmapSubtopic {
+  id: string;
+  title: string;
+  completed: boolean;
+}
 
 // Types
 interface ChatMessage {
@@ -176,8 +183,7 @@ const Dashboard = () => {
   });
   const [selectedDifficulty, setSelectedDifficulty] = useState<string>('medium');
   const [selectedModel, setSelectedModel] = useState<LLMProvider>('openai/gpt-4-turbo-preview');
-  const [mode, setMode] = useState<'tutor' | 'roadmap' | 'practice' | 'projects'>('tutor');
-
+  const [mode, setMode] = useState<'tutor' | 'roadmap' | 'practice' | 'projects' | 'progress'>('tutor');
 
   // Load roadmaps when user logs in
   useEffect(() => {
@@ -576,39 +582,30 @@ const Dashboard = () => {
                   </Paper>
                 ))}
               </Box>
-              <MantineGroup>
-                <Textarea
-                  placeholder="Ask your question..."
-                  value={userInput}
-                  onChange={(e) => setUserInput(e.currentTarget.value)}
-                  minRows={3}
-                  style={{ flex: 1 }}
-                  disabled={isLoading}
-                />
-                <Stack>
-                  <Tooltip label="Send question">
-                    <ActionIcon
-                      variant="filled"
-                      color="blue"
+              <form onSubmit={(e) => { e.preventDefault(); handleSubmit(); }}>
+                <Stack gap="sm">
+                  <Textarea
+                    value={userInput}
+                    onChange={(e) => setUserInput(e.currentTarget.value)}
+                    placeholder="Ask your question..."
+                    minRows={3}
+                    autosize
+                    maxRows={5}
+                    disabled={isLoading}
+                  />
+                  <MantineGroup justify="flex-end">
+                    <Button
+                      leftSection={<IconSend size={20} />}
                       onClick={handleSubmit}
                       loading={isLoading}
-                      disabled={!userInput.trim()}
+                      variant="gradient"
+                      gradient={{ from: 'blue', to: 'cyan' }}
                     >
-                      <IconSend size={20} />
-                    </ActionIcon>
-                  </Tooltip>
-                  <Tooltip label="Save question">
-                    <ActionIcon
-                      variant="light"
-                      color="blue"
-                      onClick={handleSaveQuestion}
-                      disabled={!userInput.trim()}
-                    >
-                      <IconBookmark size={20} />
-                    </ActionIcon>
-                  </Tooltip>
+                      Send
+                    </Button>
+                  </MantineGroup>
                 </Stack>
-              </MantineGroup>
+              </form>
             </Stack>
           </Paper>
         </Stack>
@@ -617,33 +614,41 @@ const Dashboard = () => {
           <Paper p="md" withBorder>
             <Stack gap="md">
               <MantineGroup justify="space-between">
-                <Text size="lg" fw={500}>
-                  Saved Questions
-                </Text>
-                <IconBrain size={20} />
+                <Text fw={500}>Saved Questions</Text>
+                <IconBookmark size={20} />
               </MantineGroup>
               <Divider />
               {savedQuestions.length === 0 ? (
-                <Text c="dimmed" ta="center" py="xl">
-                  No saved questions yet
-                </Text>
+                <MantineGroup align="center" gap="xs" py="xl">
+                  <IconBookmark size={40} stroke={1.5} color="gray" />
+                  <Text c="dimmed" ta="center">
+                    No saved questions yet
+                  </Text>
+                  <Text size="sm" c="dimmed" ta="center">
+                    Save questions to revisit them later
+                  </Text>
+                </MantineGroup>
               ) : (
-                savedQuestions.map((q) => (
-                  <Paper
-                    key={q.id}
-                    p="xs"
-                    withBorder
-                    style={{ cursor: "pointer" }}
-                    onClick={() => handleLoadQuestion(q)}
-                  >
-                    <Text size="sm" lineClamp={2}>
-                      {q.question}
-                    </Text>
-                    <Text size="xs" c="dimmed" mt={4}>
-                      {q.timestamp.toLocaleDateString()}
-                    </Text>
-                  </Paper>
-                ))
+                <Stack gap="xs" className="saved-questions-container">
+                  {savedQuestions.map((question) => (
+                    <Paper
+                      key={question.id}
+                      p="sm"
+                      withBorder
+                      className="saved-question-item"
+                      onClick={() => handleLoadQuestion(question)}
+                    >
+                      <MantineGroup justify="space-between">
+                        <Text size="sm" lineClamp={2}>
+                          {question.question}
+                        </Text>
+                        <Text size="xs" c="dimmed">
+                          {question.timestamp.toLocaleTimeString()}
+                        </Text>
+                      </MantineGroup>
+                    </Paper>
+                  ))}
+                </Stack>
               )}
             </Stack>
           </Paper>
@@ -700,90 +705,15 @@ const Dashboard = () => {
           </Paper>
 
           {selectedRoadmap && (
-            <Paper p="md" withBorder shadow="sm">
+            <Paper p="md" withBorder>
               <Stack gap="md">
-                <MantineGroup justify="apart">
-                  <Stack gap={0}>
-                    <Text size="lg" fw={600}>
-                      {selectedRoadmap.title}
-                    </Text>
-                    <Text size="sm" c="dimmed">
-                      Created on{" "}
-                      {selectedRoadmap.timestamp instanceof Date
-                        ? selectedRoadmap.timestamp.toLocaleDateString()
-                        : new Date(
-                            selectedRoadmap.timestamp
-                          ).toLocaleDateString()}
-                    </Text>
-                  </Stack>
-                  <MantineGroup>
-                    <Button
-                      variant="light"
-                      color="red"
-                      size="sm"
-                      onClick={async () => {
-                        // try {
-                        //   await databaseService.deleteRoadmap(
-                        //     selectedRoadmap.id
-                        //   );
-                        //   setSelectedRoadmap(null);
-                        //   removeRoadmap(selectedRoadmap.id);
-                        //   // removeRoadmap(selectedRoadmap.id);
-                        //   notifications.show({
-                        //     title: "Success",
-                        //     message: "Roadmap deleted successfully",
-                        //     color: "green",
-                        //   });
-                        // } catch (error) {
-                        //   console.error("Error deleting roadmap:", error);
-                        //   notifications.show({
-                        //     title: "Error",
-                        //     message: "Failed to delete roadmap",
-                        //     color: "red",
-                        //   });
-                        // }
-                        setSelectedRoadmap(null);
-                        removeRoadmap(selectedRoadmap.id);
-                      }}
-                    >
-                      Delete
-                    </Button>
-                    <Button
-                      variant="light"
-                      size="sm"
-                      onClick={() => {
-                        const content = `# ${selectedRoadmap.title}\n\n${selectedRoadmap.content}`;
-                        const blob = new Blob([content], {
-                          type: "text/markdown",
-                        });
-                        const url = URL.createObjectURL(blob);
-                        const a = document.createElement("a");
-                        a.href = url;
-                        a.download = `roadmap-${selectedRoadmap.title
-                          .toLowerCase()
-                          .replace(/\s+/g, "-")}.md`;
-                        document.body.appendChild(a);
-                        a.click();
-                        document.body.removeChild(a);
-                        URL.revokeObjectURL(url);
-                        notifications.show({
-                          title: "Success",
-                          message: "Roadmap downloaded successfully",
-                          color: "green",
-                        });
-                      }}
-                    >
-                      Download
-                    </Button>
-                  </MantineGroup>
+                <MantineGroup justify="space-between">
+                  <Text size="lg" fw={500}>{selectedRoadmap.title}</Text>
+                  <Badge size="lg" variant="light">
+                    {selectedRoadmap.topics.length} Topics
+                  </Badge>
                 </MantineGroup>
-                <Box
-                  className="markdown-content"
-                  style={{
-                    maxHeight: "calc(100vh - 400px)",
-                    overflowY: "auto",
-                  }}
-                >
+                <Box className="markdown-content">
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>
                     {selectedRoadmap.content}
                   </ReactMarkdown>
@@ -831,7 +761,7 @@ const Dashboard = () => {
                         <Text size="sm" fw={500} lineClamp={2}>
                           {roadmap.title}
                         </Text>
-                        <MantineGroup justify="apart">
+                        <MantineGroup justify="space-between">
                           <Text size="xs" c="dimmed">
                             {roadmap.timestamp instanceof Date
                               ? roadmap.timestamp.toLocaleDateString()
@@ -1111,68 +1041,97 @@ const Dashboard = () => {
   );
 
   const renderProjectsMode = () => (
-    <Box>
-      <Title order={2} mb="md">Project Suggestions</Title>
+    <Stack>
+      <Title order={2}>Project Suggestions</Title>
       <Text color="dimmed" mb="xl">
         Get personalized project suggestions based on your learning roadmaps or specific topics.
       </Text>
       <Projects provider={selectedModel} />
-    </Box>
+    </Stack>
+  );
+
+  const renderProgressMode = () => (
+    <Stack>
+      <Title order={2}>Learning Progress</Title>
+      <Text color="dimmed" mb="xl">
+        Track your learning journey and achievements.
+      </Text>
+      <Progress />
+    </Stack>
   );
 
   return (
     <Container size="lg" py="xl">
       <Paper shadow="sm" p="md" withBorder mb="lg">
-        <MantineGroup justify="space-between">
-          <MantineGroup justify="flex-start">
-            <ActionIcon
-              variant={mode === 'tutor' ? 'filled' : 'subtle'}
-              color="blue"
-              onClick={() => setMode('tutor')}
-              title="Chat with Tutor"
-
-            >
-              <IconBrain size={20} />
-            </ActionIcon>
-            <ActionIcon
-              variant={mode === 'roadmap' ? 'filled' : 'subtle'}
-              color="blue"
-              onClick={() => setMode('roadmap')}
-              title="Learning Roadmap"
-            >
-              <IconMap size={20} />
-            </ActionIcon>
-            <ActionIcon
-              variant={mode === 'practice' ? 'filled' : 'subtle'}
-              color="blue"
-              onClick={() => setMode('practice')}
-              title="Practice"
-            >
-              <IconListCheck size={20} />
-            </ActionIcon>
-            <ActionIcon
-              variant={mode === 'projects' ? 'filled' : 'subtle'}
-              color="blue"
-              onClick={() => setMode('projects')}
-              title="Projects"
-            >
-              <IconBookmark size={20} />
-            </ActionIcon>
-          </MantineGroup>
-          <MantineGroup justify="flex-end">
-            <LLMSelector value={selectedModel} onChange={handleModelChange} />
-            <ActionIcon color="red" onClick={handleSignOut} title="Sign Out">
-              <IconLogout size={20} />
-            </ActionIcon>
-          </MantineGroup>
+        <MantineGroup justify="flex-end">
+          <LLMSelector value={selectedModel} onChange={handleModelChange} />
         </MantineGroup>
       </Paper>
 
-      {mode === 'tutor' && renderTutorMode()}
-      {mode === 'roadmap' && renderRoadmapMode()}
-      {mode === 'practice' && renderPracticeMode()}
-      {mode === 'projects' && renderProjectsMode()}
+      <MantineGroup align="flex-start" gap="lg">
+        <Paper shadow="sm" p="md" withBorder style={{ width: '60px' }}>
+          <Stack gap="md" justify="space-between" style={{ height: 'calc(100vh - 200px)' }}>
+            <Stack gap="md">
+              <ActionIcon
+                variant={mode === 'tutor' ? 'filled' : 'subtle'}
+                color="blue"
+                onClick={() => setMode('tutor')}
+                title="Chat with Tutor"
+              >
+                <IconBrain size={20} />
+              </ActionIcon>
+              <ActionIcon
+                variant={mode === 'roadmap' ? 'filled' : 'subtle'}
+                color="blue"
+                onClick={() => setMode('roadmap')}
+                title="Learning Roadmap"
+              >
+                <IconMap size={20} />
+              </ActionIcon>
+              <ActionIcon
+                variant={mode === 'practice' ? 'filled' : 'subtle'}
+                color="blue"
+                onClick={() => setMode('practice')}
+                title="Practice"
+              >
+                <IconListCheck size={20} />
+              </ActionIcon>
+              <ActionIcon
+                variant={mode === 'projects' ? 'filled' : 'subtle'}
+                color="blue"
+                onClick={() => setMode('projects')}
+                title="Projects"
+              >
+                <IconBookmark size={20} />
+              </ActionIcon>
+              <ActionIcon
+                variant={mode === 'progress' ? 'filled' : 'subtle'}
+                color="blue"
+                onClick={() => setMode('progress')}
+                title="Learning Progress"
+              >
+                <IconChartBar size={20} />
+              </ActionIcon>
+            </Stack>
+            <ActionIcon
+              variant="subtle"
+              color="red"
+              onClick={handleSignOut}
+              title="Sign Out"
+            >
+              <IconLogout size={20} />
+            </ActionIcon>
+          </Stack>
+        </Paper>
 
+        <Box style={{ flex: 1 }}>
+          {mode === 'tutor' && renderTutorMode()}
+          {mode === 'roadmap' && renderRoadmapMode()}
+          {mode === 'practice' && renderPracticeMode()}
+          {mode === 'projects' && renderProjectsMode()}
+          {mode === 'progress' && renderProgressMode()}
+        </Box>
+      </MantineGroup>
     </Container>
   );
 };

@@ -40,38 +40,6 @@ const Layout = ({ children }: LayoutProps) => {
         </Group>
       </AppShell.Header>
 
-      <AppShell.Navbar p="md">
-        <Stack>
-          <Button
-            variant={currentMode === 'tutor' ? 'filled' : 'light'}
-            leftSection={<IconBook size={20} />}
-            onClick={() => setCurrentMode('tutor')}
-          >
-            AI Tutor
-          </Button>
-          <Button
-            variant={currentMode === 'roadmap' ? 'filled' : 'light'}
-            leftSection={<IconRoad size={20} />}
-            onClick={() => setCurrentMode('roadmap')}
-          >
-            Learning Roadmap
-          </Button>
-          <Button
-            variant={currentMode === 'practice' ? 'filled' : 'light'}
-            leftSection={<IconBrain size={20} />}
-            onClick={() => setCurrentMode('practice')}
-          >
-            Practice Questions
-          </Button>
-          <Button
-            variant={currentMode === 'progress' ? 'filled' : 'light'}
-            leftSection={<IconProgress size={20} />}
-            onClick={() => setCurrentMode('progress')}
-          >
-            Learning Progress
-          </Button>
-        </Stack>
-      </AppShell.Navbar>
 
       <AppShell.Main>
         {children}

@@ -133,36 +133,42 @@ export const Projects: React.FC<ProjectsProps> = ({ className, provider, roadmap
 
       {error && <ErrorMessage message={error} />}
 
-      <Stack>
-        {projects.map((project) => (
-          <Paper key={project.id} p="md" withBorder>
-            <Group justify="space-between" mb="xs">
-              <Text size="xl" fw={700}>{project.title}</Text>
-              <Badge
-                color={
-                  project.difficulty === 'Beginner' ? 'green' :
-                  project.difficulty === 'Intermediate' ? 'yellow' :
-                  'red'
-                }
-              >
-                {project.difficulty}
-              </Badge>
-            </Group>
-            <Box mb="md">
-              <Text fw={500} mb="xs">Description:</Text>
-              <Text>{project.description}</Text>
-            </Box>
-            <Box>
-              <Text fw={500} mb="xs">Implementation Plan:</Text>
-              <Paper p="sm" bg="gray.0">
-                <ReactMarkdown className="prose">
-                  {project.implementation_plan}
-                </ReactMarkdown>
-              </Paper>
-            </Box>
-          </Paper>
-        ))}
-      </Stack>
+      {projects.length === 0 ? (
+        <Text c="dimmed" ta="center" py="xl">
+          No projects yet. Generate your first project!
+        </Text>
+      ) : (
+        <Stack>
+          {projects.map((project) => (
+            <Paper key={project.id} p="md" withBorder>
+              <Group justify="space-between" mb="xs">
+                <Text size="xl" fw={700}>{project.title}</Text>
+                <Badge
+                  color={
+                    project.difficulty === 'Beginner' ? 'green' :
+                    project.difficulty === 'Intermediate' ? 'yellow' :
+                    'red'
+                  }
+                >
+                  {project.difficulty}
+                </Badge>
+              </Group>
+              <Box mb="md">
+                <Text fw={500} mb="xs">Description:</Text>
+                <Text>{project.description}</Text>
+              </Box>
+              <Box>
+                <Text fw={500} mb="xs">Implementation Plan:</Text>
+                <Paper p="sm" bg="gray.0">
+                  <ReactMarkdown className="prose">
+                    {project.implementation_plan}
+                  </ReactMarkdown>
+                </Paper>
+              </Box>
+            </Paper>
+          ))}
+        </Stack>
+      )}
     </Stack>
   );
 }; 
