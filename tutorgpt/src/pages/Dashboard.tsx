@@ -159,6 +159,7 @@ const Dashboard = () => {
     roadmaps,
     removeRoadmap,
     clearRoadmaps,
+    setCurrentMode
   } = useStore();
   const [userInput, setUserInput] = useState("");
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
@@ -183,7 +184,6 @@ const Dashboard = () => {
   });
   const [selectedDifficulty, setSelectedDifficulty] = useState<string>('medium');
   const [selectedModel, setSelectedModel] = useState<LLMProvider>('openai/gpt-4-turbo-preview');
-  const [mode, setMode] = useState<'tutor' | 'roadmap' | 'practice' | 'projects' | 'progress'>('tutor');
 
   // Load roadmaps when user logs in
   useEffect(() => {
@@ -1040,16 +1040,6 @@ const Dashboard = () => {
     </Stack>
   );
 
-  const renderProjectsMode = () => (
-    <Stack>
-      <Title order={2}>Project Suggestions</Title>
-      <Text color="dimmed" mb="xl">
-        Get personalized project suggestions based on your learning roadmaps or specific topics.
-      </Text>
-      <Projects provider={selectedModel} />
-    </Stack>
-  );
-
   const renderProgressMode = () => (
     <Stack>
       <Title order={2}>Learning Progress</Title>
@@ -1060,78 +1050,23 @@ const Dashboard = () => {
     </Stack>
   );
 
+  const renderProjectsMode = () => (
+    <Stack>
+      <Title order={2}>Project Suggestions</Title>
+      <Text color="dimmed" mb="xl">
+        Get personalized project suggestions based on your learning roadmaps or specific topics.
+      </Text>
+      <Projects provider={selectedModel} />
+    </Stack>
+  );
+
   return (
-    <Container size="lg" py="xl">
-      <Paper shadow="sm" p="md" withBorder mb="lg">
-        <MantineGroup justify="flex-end">
-          <LLMSelector value={selectedModel} onChange={handleModelChange} />
-        </MantineGroup>
-      </Paper>
-
-      <MantineGroup align="flex-start" gap="lg">
-        <Paper shadow="sm" p="md" withBorder style={{ width: '60px' }}>
-          <Stack gap="md" justify="space-between" style={{ height: 'calc(100vh - 200px)' }}>
-            <Stack gap="md">
-              <ActionIcon
-                variant={mode === 'tutor' ? 'filled' : 'subtle'}
-                color="blue"
-                onClick={() => setMode('tutor')}
-                title="Chat with Tutor"
-              >
-                <IconBrain size={20} />
-              </ActionIcon>
-              <ActionIcon
-                variant={mode === 'roadmap' ? 'filled' : 'subtle'}
-                color="blue"
-                onClick={() => setMode('roadmap')}
-                title="Learning Roadmap"
-              >
-                <IconMap size={20} />
-              </ActionIcon>
-              <ActionIcon
-                variant={mode === 'practice' ? 'filled' : 'subtle'}
-                color="blue"
-                onClick={() => setMode('practice')}
-                title="Practice"
-              >
-                <IconListCheck size={20} />
-              </ActionIcon>
-              <ActionIcon
-                variant={mode === 'projects' ? 'filled' : 'subtle'}
-                color="blue"
-                onClick={() => setMode('projects')}
-                title="Projects"
-              >
-                <IconBookmark size={20} />
-              </ActionIcon>
-              <ActionIcon
-                variant={mode === 'progress' ? 'filled' : 'subtle'}
-                color="blue"
-                onClick={() => setMode('progress')}
-                title="Learning Progress"
-              >
-                <IconChartBar size={20} />
-              </ActionIcon>
-            </Stack>
-            <ActionIcon
-              variant="subtle"
-              color="red"
-              onClick={handleSignOut}
-              title="Sign Out"
-            >
-              <IconLogout size={20} />
-            </ActionIcon>
-          </Stack>
-        </Paper>
-
-        <Box style={{ flex: 1 }}>
-          {mode === 'tutor' && renderTutorMode()}
-          {mode === 'roadmap' && renderRoadmapMode()}
-          {mode === 'practice' && renderPracticeMode()}
-          {mode === 'projects' && renderProjectsMode()}
-          {mode === 'progress' && renderProgressMode()}
-        </Box>
-      </MantineGroup>
+    <Container size="xl" p="md">
+      {currentMode === 'tutor' && renderTutorMode()}
+      {currentMode === 'roadmap' && renderRoadmapMode()}
+      {currentMode === 'practice' && renderPracticeMode()}
+      {currentMode === 'progress' && renderProgressMode()}
+      {currentMode === 'projects' && renderProjectsMode()}
     </Container>
   );
 };

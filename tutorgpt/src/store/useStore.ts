@@ -13,7 +13,7 @@ interface User {
 
 interface Store {
   user: User | null;
-  currentMode: 'tutor' | 'roadmap' | 'practice' | 'progress';
+  currentMode: 'tutor' | 'roadmap' | 'practice' | 'progress' | 'projects';
   roadmaps: Roadmap[];
   progress: RoadmapMetrics[];
   isLoading: boolean;
@@ -26,7 +26,7 @@ interface Store {
 
   // User management
   setUser: (user: User | null) => void;
-  setCurrentMode: (mode: 'tutor' | 'roadmap' | 'practice' | 'progress') => void;
+  setCurrentMode: (mode: 'tutor' | 'roadmap' | 'practice' | 'progress' | 'projects') => void;
 
   // Roadmap management
   addRoadmap: (roadmap: Roadmap) => void;

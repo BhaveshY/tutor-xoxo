@@ -1,6 +1,6 @@
 import React, { ReactNode } from 'react';
-import { AppShell, Burger, Group, Text, Button, Stack } from '@mantine/core';
-import { IconBook, IconRoad, IconBrain, IconLogout, IconProgress } from '@tabler/icons-react';
+import { AppShell, Burger, Group, Text, Button, Stack, NavLink } from '@mantine/core';
+import { IconBook, IconRoad, IconBrain, IconLogout, IconProgress, IconChartBar, IconBookmark } from '@tabler/icons-react';
 import { useNavigate } from 'react-router-dom';
 import useStore from '../store/useStore.ts';
 
@@ -40,6 +40,40 @@ const Layout = ({ children }: LayoutProps) => {
         </Group>
       </AppShell.Header>
 
+      <AppShell.Navbar p="md">
+        <Stack gap="sm">
+          <NavLink
+            label="Tutor"
+            leftSection={<IconBook size={20} />}
+            active={currentMode === 'tutor'}
+            onClick={() => setCurrentMode('tutor')}
+          />
+          <NavLink
+            label="Roadmap"
+            leftSection={<IconRoad size={20} />}
+            active={currentMode === 'roadmap'}
+            onClick={() => setCurrentMode('roadmap')}
+          />
+          <NavLink
+            label="Practice"
+            leftSection={<IconBrain size={20} />}
+            active={currentMode === 'practice'}
+            onClick={() => setCurrentMode('practice')}
+          />
+          <NavLink
+            label="Projects"
+            leftSection={<IconBookmark size={20} />}
+            active={currentMode === 'projects'}
+            onClick={() => setCurrentMode('projects')}
+          />
+          <NavLink
+            label="Progress"
+            leftSection={<IconChartBar size={20} />}
+            active={currentMode === 'progress'}
+            onClick={() => setCurrentMode('progress')}
+          />
+        </Stack>
+      </AppShell.Navbar>
 
       <AppShell.Main>
         {children}
