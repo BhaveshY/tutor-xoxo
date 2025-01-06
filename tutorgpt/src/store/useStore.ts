@@ -3,7 +3,7 @@ import { devtools, persist } from 'zustand/middleware';
 import { supabase } from '../lib/supabaseClient.ts';
 import { evolutionService } from '../services/evolutionService.ts';
 import { Roadmap, RoadmapMetrics, TopicMetrics } from '../types/roadmap.ts';
-import { calculateProgress, parseRoadmapContent, ProgressData, sortedOrder } from '@/pages/Progress.tsx';
+import { calculateProgress, parseRoadmapContent, ProgressData, sortedOrder } from '../pages/Progress.tsx';
 
 interface User {
   id: string;
@@ -82,7 +82,7 @@ const useStore = create<Store>()(
         set((state) => ({
           roadmaps: state.roadmaps.filter((r) => r.id !== id),
           progress: state.progress.filter((p) => p.roadmapId !== id),
-          progressDataStore: state.progressDataStore.filter(p => p.id !== id)
+          progressDataStore: state.progressDataStore.filter((p: ProgressData) => p.id !== id)
         })),
 
       clearRoadmaps: () =>
