@@ -33,9 +33,3 @@
    - Various services in `/services` that handle API communications
 
 The project is designed to be modular and scalable. We're using modern best practices like TypeScript for type safety and Mantine UI for consistent design.
-
-Is there any specific part of the system you'd like me to explain in more detail? For instance, I can dive deeper into:
-- How our AI model integration works
-- The authentication flow
-- The practice question generation system
-- Or any other component you're curious about
