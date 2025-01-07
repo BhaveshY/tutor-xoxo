@@ -1,6 +1,6 @@
 import React, { ReactNode } from 'react';
-import { AppShell, Burger, Group, Text, Button, Stack } from '@mantine/core';
-import { IconBook, IconRoad, IconBrain, IconLogout, IconProgress } from '@tabler/icons-react';
+import { AppShell, Burger, Group, Text, Button, Stack, NavLink } from '@mantine/core';
+import { IconBook, IconRoad, IconBrain, IconLogout, IconProgress, IconChartBar, IconBookmark } from '@tabler/icons-react';
 import { useNavigate } from 'react-router-dom';
 import useStore from '../store/useStore.ts';
 
@@ -41,35 +41,37 @@ const Layout = ({ children }: LayoutProps) => {
       </AppShell.Header>
 
       <AppShell.Navbar p="md">
-        <Stack>
-          <Button
-            variant={currentMode === 'tutor' ? 'filled' : 'light'}
+        <Stack gap="sm">
+          <NavLink
+            label="Tutor"
             leftSection={<IconBook size={20} />}
+            active={currentMode === 'tutor'}
             onClick={() => setCurrentMode('tutor')}
-          >
-            AI Tutor
-          </Button>
-          <Button
-            variant={currentMode === 'roadmap' ? 'filled' : 'light'}
+          />
+          <NavLink
+            label="Roadmap"
             leftSection={<IconRoad size={20} />}
+            active={currentMode === 'roadmap'}
             onClick={() => setCurrentMode('roadmap')}
-          >
-            Learning Roadmap
-          </Button>
-          <Button
-            variant={currentMode === 'practice' ? 'filled' : 'light'}
+          />
+          <NavLink
+            label="Practice"
             leftSection={<IconBrain size={20} />}
+            active={currentMode === 'practice'}
             onClick={() => setCurrentMode('practice')}
-          >
-            Practice Questions
-          </Button>
-          <Button
-            variant={currentMode === 'progress' ? 'filled' : 'light'}
-            leftSection={<IconProgress size={20} />}
+          />
+          <NavLink
+            label="Projects"
+            leftSection={<IconBookmark size={20} />}
+            active={currentMode === 'projects'}
+            onClick={() => setCurrentMode('projects')}
+          />
+          <NavLink
+            label="Progress"
+            leftSection={<IconChartBar size={20} />}
+            active={currentMode === 'progress'}
             onClick={() => setCurrentMode('progress')}
-          >
-            Learning Progress
-          </Button>
+          />
         </Stack>
       </AppShell.Navbar>
 
