@@ -58,22 +58,30 @@ const useStore = create<Store>()(
       emailConfirmationSent: false,
       progressDataStore: [],
 
-      updateProgressDataStore: (data: ProgressData[]) => set({ progressDataStore: data }),
-      updateProgressDataOrder: (data: ProgressData[]) => set({ progressDataStore: sortedOrder(data) }),
+      updateProgressDataStore: (data) => set({ progressDataStore: data }),
+      updateProgressDataOrder: (data) => set({ progressDataStore: sortedOrder(data) }),
 
       setUser: (user) => set({ user }),
       setCurrentMode: (mode) => set({ currentMode: mode }),
 
       addRoadmap: (roadmap) =>
-        set((state) => ({
-          roadmaps: [roadmap, ...state.roadmaps],
-          progressDataStore: [{
+        set((state) => {
+          const topics = roadmap.topics || parseRoadmapContent(roadmap.content);
+          const progress = calculateProgress(topics);
+          const newRoadmap = { ...roadmap, topics, progress };
+          
+          const progressData: ProgressData = {
             id: roadmap.id,
             title: roadmap.title,
-            topics: parseRoadmapContent(roadmap.content),
-            progress: calculateProgress(parseRoadmapContent(roadmap.content)),
-          }, ...state.progressDataStore],
-        })),
+            topics,
+            progress,
+          };
+
+          return {
+            roadmaps: [newRoadmap, ...state.roadmaps],
+            progressDataStore: [progressData, ...state.progressDataStore],
+          };
+        }),
 
       removeRoadmap: (id) =>
         set((state) => ({
@@ -191,54 +199,6 @@ const useStore = create<Store>()(
         const progress = state.progress.find(p => p.roadmapId === roadmapId);
         return progress?.topicMetrics[topicId];
       },
-
-      // optimizeRoadmap: (roadmapId) =>
-      //   set((state) => {
-      //     const roadmap = state.roadmaps.find(r => r.id === roadmapId);
-      //     const progress = state.progressDataStore.find(p => p.id === roadmapId);
-
-      //     if (!roadmap || !progress) return state;
-
-      //     const performances = roadmap.topics.map(topic => ({
-      //       topicId: topic.id,
-      //       metrics: {
-      //         completionTime: progress.topicMetrics[topic.id]?.timeSpent || 0,
-      //         attemptsCount: progress.topicMetrics[topic.id]?.attempts || 0,
-      //         successRate: progress.topicMetrics[topic.id]?.successRate || 0,
-      //         difficultyRating: progress.topicMetrics[topic.id]?.difficulty || 0.5,
-      //         lastAttemptTimestamp: progress.topicMetrics[topic.id]?.lastAttemptTimestamp || Date.now(),
-      //         averageTimePerSubtopic: progress.topicMetrics[topic.id]?.averageTimePerSubtopic || 0,
-      //         consistencyScore: progress.topicMetrics[topic.id]?.consistencyScore || 0,
-      //         retentionRate: progress.topicMetrics[topic.id]?.retentionRate || 0,
-      //       },
-      //     }));
-
-      //     const optimizedTopics = evolutionService.optimizeRoadmap(roadmap.topics, performances);
-
-      //     // Preserve completion status of topics and subtopics
-      //     const optimizedTopicsWithStatus = optimizedTopics.map(topic => {
-      //       const originalTopic = roadmap.topics.find(t => t.id === topic.id);
-      //       return {
-      //         ...topic,
-      //         completed: originalTopic?.completed || false,
-      //         subtopics: topic.subtopics.map(subtopic => {
-      //           const originalSubtopic = originalTopic?.subtopics.find(s => s.id === subtopic.id);
-      //           return {
-      //             ...subtopic,
-      //             completed: originalSubtopic?.completed || false,
-      //           };
-      //         }),
-      //       };
-      //     });
-
-      //     return {
-      //       roadmaps: state.roadmaps.map(r =>
-      //         r.id === roadmapId
-      //           ? { ...r, topics: optimizedTopicsWithStatus }
-      //           : r
-      //       ),
-      //     };
-      //   }),
 
       optimizeRoadmap: (roadmapId) =>
         set((state) => {

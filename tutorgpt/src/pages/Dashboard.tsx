@@ -6,8 +6,6 @@ import { databaseService, LearningRoadmap } from '../services/databaseService.ts
 import { supabase } from '../lib/supabaseClient.ts';
 import { Projects } from '../components/Projects.tsx';
 import Progress from './Progress.tsx';
-import type { RoadmapTopic, RoadmapSubtopic } from '../types/roadmap.ts';
-import { parseRoadmapContent, calculateProgress } from './Progress.tsx';
 import { LLMSelector } from '../components/LLMSelector.tsx';
 import { notifications } from '@mantine/notifications';
 import { 
@@ -43,6 +41,20 @@ import {
 } from '@tabler/icons-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { parseRoadmapContent, calculateProgress } from './Progress.tsx';
+
+interface RoadmapTopic {
+  id: string;
+  title: string;
+  subtopics: RoadmapSubtopic[];
+  completed: boolean;
+}
+
+interface RoadmapSubtopic {
+  id: string;
+  title: string;
+  completed: boolean;
+}
 
 // Types
 interface ChatMessage {
@@ -142,13 +154,12 @@ const Dashboard = () => {
   useEffect(() => {
     const loadRoadmaps = async () => {
       if (!user?.id) return;
+
       try {
-        const roadmaps = await databaseService.getRoadmaps(user.id);
-        // Clear existing roadmaps first
         clearRoadmaps();
-        // Add each roadmap to the store
-        roadmaps.forEach(roadmap => {
-          console.log('Loading roadmap:', roadmap);
+        const roadmapsData = await databaseService.getRoadmaps(user.id);
+        roadmapsData.forEach((roadmap) => {
+          console.log('Loading roadmap content:', roadmap.content);
           const topics = parseRoadmapContent(roadmap.content);
           console.log('Parsed topics:', topics);
           addRoadmap({
@@ -157,15 +168,15 @@ const Dashboard = () => {
             content: roadmap.content,
             timestamp: new Date(roadmap.created_at),
             topics: topics,
-            progress: calculateProgress(topics)
+            progress: calculateProgress(topics),
           });
         });
       } catch (error) {
-        console.error('Error loading roadmaps:', error);
+        console.error("Error loading roadmaps:", error);
         notifications.show({
-          title: 'Error',
-          message: 'Failed to load roadmaps. Please try refreshing the page.',
-          color: 'red'
+          title: "Error",
+          message: "Failed to load roadmaps",
+          color: "red",
         });
       }
     };
@@ -296,10 +307,8 @@ const Dashboard = () => {
         throw new Error(result.error);
       }
 
-      console.log('Raw roadmap content:', result.content);
       // Process and save roadmap
       const topics = parseRoadmapContent(result.content);
-      console.log('Parsed topics:', topics);
       addRoadmap({
         id: Date.now().toString(),
         title: userInput,

@@ -1,10 +1,9 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { corsHeaders } from "../_shared/cors.ts";
-import { LLMModel, callOpenRouter } from "../_shared/openrouter.ts";
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+import { corsHeaders } from '../_shared/cors.ts';
 
-interface RequestBody {
+interface RoadmapRequest {
   prompt: string;
-  model: LLMModel;
+  model: string;
 }
 
 serve(async (req: Request) => {
@@ -13,81 +12,108 @@ serve(async (req: Request) => {
   }
 
   try {
-    const { prompt, model = 'openai/gpt-4-turbo-preview' } = await req.json() as RequestBody;
+    const { prompt, model = 'openai/gpt-4-turbo-preview' } = await req.json() as RoadmapRequest;
 
-    if (!prompt) {
-      throw new Error('Prompt is required');
-    }
+    const systemMessage = {
+      role: 'system' as const,
+      content: `You are an expert in creating learning roadmaps. Create a detailed, structured learning path that helps students achieve their educational goals efficiently.
 
-    const messages = [
-      {
-        role: 'system' as const,
-        content: `Create a detailed learning roadmap for the given topic. You MUST follow this EXACT format:
+Format your response EXACTLY as follows:
+## Topic 1: [First Topic Title]
+- Specific subtask or learning objective
+- Another specific subtask
+- Another learning objective
 
-## Topic 1: [First Major Topic]
-- Subtopic 1.1
-- Subtopic 1.2
-- Subtopic 1.3
+## Topic 2: [Second Topic Title]
+- Specific subtask or learning objective
+- Another specific subtask
+- Another learning objective
 
-## Topic 2: [Second Major Topic]
-- Subtopic 2.1
-- Subtopic 2.2
-- Subtopic 2.3
+## Topic 3: [Third Topic Title]
+- Specific subtask or learning objective
+- Another specific subtask
+- Another learning objective
 
-## Topic 3: [Third Major Topic]
-- Subtopic 3.1
-- Subtopic 3.2
-- Subtopic 3.3
+Rules:
+1. Always start topics with "## Topic N: " where N is the sequential number
+2. Always include at least 3 topics
+3. Each topic must have at least 3 subtasks/objectives
+4. Each subtask must start with "- "
+5. Make subtasks specific and actionable
+6. Do not include any other text or formatting`
+    };
 
-Important rules:
-1. Each topic MUST start with "## Topic N: " where N is the topic number
-2. Each subtopic MUST start with "- "
-3. Do not include any other text or explanations
-4. Do not use any other formatting
-5. Each topic must have at least 2 subtopics
-6. Create at least 3 topics
-7. Topics should represent major milestones or concepts
-8. Subtopics should be specific, actionable learning objectives`
-      },
-      {
-        role: 'user' as const,
-        content: prompt
-      }
-    ];
+    const messages = [systemMessage, { role: 'user' as const, content: prompt }];
 
-    const content = await callOpenRouter(messages, model);
-
-    // Validate the response format
-    const lines = content.split('\n').filter(line => line.trim());
-    const topicCount = lines.filter(line => line.startsWith('## Topic')).length;
+    // Get the appropriate API key and base URL based on the provider
+    const [provider] = model.split('/');
+    let apiKey: string | undefined;
+    let apiBase: string;
+    let modelName: string;
     
-    if (topicCount < 3) {
-      // If the format is wrong, try one more time
-      const retryContent = await callOpenRouter(messages, model);
-      return new Response(
-        JSON.stringify({ content: retryContent }),
-        {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 200,
-        },
-      );
+    switch (provider) {
+      case 'openai':
+        apiKey = Deno.env.get('OPENAI_API_KEY');
+        apiBase = 'https://api.openai.com/v1';
+        modelName = 'gpt-4-1106-preview';
+        break;
+      case 'groq':
+        apiKey = Deno.env.get('GROQ_API_KEY');
+        apiBase = 'https://api.groq.com/openai/v1';
+        modelName = 'mixtral-8x7b-32768';
+        break;
+      case 'anthropic':
+        apiKey = Deno.env.get('ANTHROPIC_API_KEY');
+        apiBase = 'https://api.anthropic.com/v1';
+        modelName = 'claude-3-sonnet-20240229';
+        break;
+      default:
+        apiKey = Deno.env.get('OPENAI_API_KEY');
+        apiBase = 'https://api.openai.com/v1';
+        modelName = 'gpt-4-1106-preview';
     }
 
-    return new Response(
-      JSON.stringify({ content }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200,
+    if (!apiKey) {
+      throw new Error(`API key not found for provider ${provider}`);
+    }
+
+    // Make request to provider's API directly
+    const response = await fetch(`${apiBase}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+        ...(provider === 'anthropic' ? { 'anthropic-version': '2023-06-01' } : {})
       },
-    );
+      body: JSON.stringify({
+        model: modelName,
+        messages,
+        temperature: 0.7,
+        max_tokens: 2000
+      })
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      console.error('API error response:', error);
+      throw new Error(error.message || `API error: ${response.statusText}`);
+    }
+
+    const result = await response.json();
+    const aiResponse = {
+      content: result.choices[0].message.content
+    };
+
+    return new Response(JSON.stringify(aiResponse), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 200,
+    });
+
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
-    return new Response(
-      JSON.stringify({ error: errorMessage }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 500,
-      },
-    );
+    console.error('Error:', error);
+    return new Response(JSON.stringify({ error: (error as Error).message }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 500,
+    });
   }
 }); 

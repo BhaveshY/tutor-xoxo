@@ -40,73 +40,88 @@ export interface ProgressData extends Omit<Roadmap, "content" | "timestamp"> {
 
 export const parseRoadmapContent = (content: string): RoadmapTopic[] => {
   console.log('Parsing content:', content);
-  if (!content) {
-    console.warn('Empty content provided to parseRoadmapContent');
+  if (!content || typeof content !== 'string') {
+    console.warn('Invalid content provided to parseRoadmapContent:', content);
     return [];
   }
 
-  const lines = content.split("\n").filter(line => line.trim());
-  console.log('Lines:', lines);
+  const lines = content.split("\n").map(line => line.trim()).filter(Boolean);
+  console.log('Lines to parse:', lines);
   const topics: RoadmapTopic[] = [];
   let currentTopic: RoadmapTopic | null = null;
 
-  lines.forEach((line) => {
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
     console.log('Processing line:', line);
-    // Check for topic headers (## Topic N: followed by anything)
-    if (line.match(/^##\s+Topic\s+\d+:/)) {
+
+    // Check for topic headers (## Topic N: or ## Milestone: or just ##)
+    if (line.startsWith('##')) {
+      // If we have a current topic, save it before starting a new one
       if (currentTopic) {
-        console.log('Pushing current topic:', currentTopic);
+        console.log('Saving current topic:', currentTopic);
         topics.push(currentTopic);
       }
-      
-      // Extract the topic title (everything after the colon)
-      const title = line.split(':')[1]?.trim() || "Untitled Topic";
-      
-      console.log('Creating new topic with title:', title);
+
+      // Extract the topic title
+      let title = line.replace(/^##\s+/, '').trim();
+      if (title.includes(':')) {
+        title = title.split(':')[1]?.trim() || title;
+      }
+      // Remove any "Topic N" or "Milestone" prefix
+      title = title.replace(/^(Topic \d+|Milestone):\s*/, '').trim();
+
+      console.log('Creating new topic:', title);
       currentTopic = {
-        id: Date.now().toString() + Math.random(),
+        id: `topic_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         title,
         subtopics: [],
         completed: false,
       };
-    } 
-    // Check for subtopics (must start with - )
-    else if (line.startsWith('- ') && currentTopic) {
-      const title = line.substring(2).trim();
-      console.log('Adding subtopic:', title);
-      currentTopic.subtopics.push({
-        id: Date.now().toString() + Math.random(),
-        title,
-        completed: false,
-      });
-    }
-    // Ignore any other lines that don't match the expected format
-  });
 
+      // Look ahead for subtopics
+      let j = i + 1;
+      while (j < lines.length && !lines[j].startsWith('##')) {
+        const subtopicLine = lines[j].trim();
+        if (subtopicLine.startsWith('-') || subtopicLine.startsWith('*')) {
+          const subtopicTitle = subtopicLine.replace(/^[-*]\s+/, '').trim();
+          console.log('Adding subtopic:', subtopicTitle);
+          currentTopic.subtopics.push({
+            id: `subtopic_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            title: subtopicTitle,
+            completed: false,
+          });
+        }
+        j++;
+      }
+    }
+  }
+
+  // Don't forget to add the last topic
   if (currentTopic) {
-    console.log('Pushing final topic:', currentTopic);
+    console.log('Saving final topic:', currentTopic);
     topics.push(currentTopic);
   }
 
-  // If no valid topics were found, create a single topic with all lines as subtopics
+  // If we didn't find any properly formatted topics but have content,
+  // create a single topic with the content as subtopics
   if (topics.length === 0 && lines.length > 0) {
-    console.log('No valid topics found, creating single topic from content');
+    console.log('Creating single topic from unformatted content');
     const mainTopic: RoadmapTopic = {
-      id: Date.now().toString() + Math.random(),
+      id: `topic_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       title: "Main Topic",
       subtopics: lines
-        .filter(line => line.trim() && !line.startsWith('##'))
+        .filter(line => !line.startsWith('##'))
         .map(line => ({
-          id: Date.now().toString() + Math.random(),
+          id: `subtopic_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
           title: line.replace(/^[-*]\s+/, '').trim(),
-          completed: false
+          completed: false,
         })),
-      completed: false
+      completed: false,
     };
     topics.push(mainTopic);
   }
 
-  console.log('Final topics:', topics);
+  console.log('Final parsed topics:', topics);
   return topics;
 };
 
@@ -165,16 +180,15 @@ const Progress = () => {
   const [selectedProgress, setSelectedProgress] = useState<ProgressData>();
   const [startTimes, setStartTimes] = useState<Record<string, number>>({});
 
+  // Initialize progress data when component mounts or roadmaps change
   useEffect(() => {
-    // Initialize progress data from store or convert from roadmaps
-    if (progressDataStore.length > 0) {
-      console.log('Using existing progress data from store:', progressDataStore);
-      setProgressData(progressDataStore);
-    } else if (roadmaps.length > 0) {
-      console.log('Converting roadmaps to progress data:', roadmaps);
-      const convertedProgress = roadmaps.map((roadmap) => {
-        const topics = parseRoadmapContent(roadmap.content);
+    console.log('Roadmaps changed:', roadmaps);
+    if (roadmaps.length > 0) {
+      const newProgressData = roadmaps.map((roadmap) => {
+        console.log('Processing roadmap:', roadmap);
         const existingProgress = getProgress(roadmap.id);
+        const topics = roadmap.topics || parseRoadmapContent(roadmap.content);
+        console.log('Topics for roadmap:', topics);
 
         if (existingProgress) {
           topics.forEach((topic) => {
@@ -189,33 +203,29 @@ const Progress = () => {
           });
         }
 
-        const progress = {
+        return {
           id: roadmap.id,
           title: roadmap.title,
           topics,
           progress: calculateProgress(topics),
         };
-        console.log('Converted progress for roadmap:', progress);
-        return progress;
       });
 
-      console.log('Setting progress data:', convertedProgress);
-      setProgressData(convertedProgress);
-      updateProgressDataStore(convertedProgress);
+      console.log('Setting new progress data:', newProgressData);
+      setProgressData(newProgressData);
+      updateProgressDataStore(newProgressData);
     }
-  }, [roadmaps, progressDataStore]);
+  }, [roadmaps]);
 
+  // Update selected progress when roadmap selection changes
   useEffect(() => {
     if (selectedRoadmap) {
-      console.log('Selected roadmap:', selectedRoadmap);
-      console.log('Progress data store:', progressDataStore);
-      const selectedProgress = progressDataStore.find(
-        (p) => p.id === selectedRoadmap
-      );
-      console.log('Selected progress:', selectedProgress);
-      setSelectedProgress(selectedProgress);
+      console.log('Selected roadmap changed:', selectedRoadmap);
+      const selected = progressData.find((p) => p.id === selectedRoadmap);
+      console.log('Found progress data:', selected);
+      setSelectedProgress(selected);
     }
-  }, [selectedRoadmap, progressDataStore]);
+  }, [selectedRoadmap, progressData]);
 
   const handleUpdateProgressOrder = (data: any) => {
     console.log("Inside handleUpdateProgressOrder");
