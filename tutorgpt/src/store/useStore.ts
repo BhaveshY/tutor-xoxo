@@ -18,11 +18,10 @@ interface Store {
   progress: RoadmapMetrics[];
   isLoading: boolean;
   emailConfirmationSent: boolean;
-  progressDataStore: any;
+  progressDataStore: ProgressData[];
 
-
-  updateProgressDataStore: (data: any) => void;
-  updateProgressDataOrder: (data: any) => void;
+  updateProgressDataStore: (data: ProgressData[]) => void;
+  updateProgressDataOrder: (data: ProgressData[]) => void;
 
   // User management
   setUser: (user: User | null) => void;
@@ -59,10 +58,8 @@ const useStore = create<Store>()(
       emailConfirmationSent: false,
       progressDataStore: [],
 
-
-
-      updateProgressDataStore: (data: any) => set({ progressDataStore: data }),
-      updateProgressDataOrder: (data: any) => set({ progressDataStore: sortedOrder(data) }),
+      updateProgressDataStore: (data: ProgressData[]) => set({ progressDataStore: data }),
+      updateProgressDataOrder: (data: ProgressData[]) => set({ progressDataStore: sortedOrder(data) }),
 
       setUser: (user) => set({ user }),
       setCurrentMode: (mode) => set({ currentMode: mode }),

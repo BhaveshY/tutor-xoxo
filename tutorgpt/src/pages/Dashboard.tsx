@@ -6,6 +6,8 @@ import { databaseService, LearningRoadmap } from '../services/databaseService.ts
 import { supabase } from '../lib/supabaseClient.ts';
 import { Projects } from '../components/Projects.tsx';
 import Progress from './Progress.tsx';
+import type { RoadmapTopic, RoadmapSubtopic } from '../types/roadmap.ts';
+import { parseRoadmapContent, calculateProgress } from './Progress.tsx';
 import { LLMSelector } from '../components/LLMSelector.tsx';
 import { notifications } from '@mantine/notifications';
 import { 
@@ -41,19 +43,6 @@ import {
 } from '@tabler/icons-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-
-interface RoadmapTopic {
-  id: string;
-  title: string;
-  subtopics: RoadmapSubtopic[];
-  completed: boolean;
-}
-
-interface RoadmapSubtopic {
-  id: string;
-  title: string;
-  completed: boolean;
-}
 
 // Types
 interface ChatMessage {
@@ -101,42 +90,6 @@ interface PracticeStats {
 }
 
 type RoadmapItem = SavedRoadmap;
-
-const parseRoadmapContent = (content: string): RoadmapTopic[] => {
-  const lines = content.split("\n");
-  const topics: RoadmapTopic[] = [];
-  let currentTopic: RoadmapTopic | null = null;
-
-  lines.forEach((line) => {
-    if (line.startsWith("## Milestone")) {
-      if (currentTopic) {
-        topics.push(currentTopic);
-      }
-      const title =
-        line.replace("## Milestone", "").trim().split(":")[1]?.trim() ||
-        "Untitled";
-      currentTopic = {
-        id: Date.now().toString() + Math.random(),
-        title,
-        subtopics: [],
-        completed: false,
-      };
-    } else if (line.startsWith("- ") && currentTopic) {
-      const title = line.replace("- ", "").trim();
-      currentTopic.subtopics.push({
-        id: Date.now().toString() + Math.random(),
-        title,
-        completed: false,
-      });
-    }
-  });
-
-  if (currentTopic) {
-    topics.push(currentTopic);
-  }
-
-  return topics;
-};
 
 const getModelLabel = (model: LLMProvider): string => {
   switch (model) {
@@ -189,36 +142,36 @@ const Dashboard = () => {
   useEffect(() => {
     const loadRoadmaps = async () => {
       if (!user?.id) return;
-
       try {
-        // clearRoadmaps();
-        const roadmapsData = await databaseService.getRoadmaps(user.id);
-        roadmapsData.forEach((roadmap) => {
+        const roadmaps = await databaseService.getRoadmaps(user.id);
+        // Clear existing roadmaps first
+        clearRoadmaps();
+        // Add each roadmap to the store
+        roadmaps.forEach(roadmap => {
+          console.log('Loading roadmap:', roadmap);
+          const topics = parseRoadmapContent(roadmap.content);
+          console.log('Parsed topics:', topics);
           addRoadmap({
             id: roadmap.id,
             title: roadmap.title,
             content: roadmap.content,
             timestamp: new Date(roadmap.created_at),
-            topics: [],
-            progress: 0,
+            topics: topics,
+            progress: calculateProgress(topics)
           });
         });
       } catch (error) {
-        console.error("Error loading roadmaps:", error);
+        console.error('Error loading roadmaps:', error);
         notifications.show({
-          title: "Error",
-          message: "Failed to load roadmaps",
-          color: "red",
+          title: 'Error',
+          message: 'Failed to load roadmaps. Please try refreshing the page.',
+          color: 'red'
         });
       }
     };
 
     loadRoadmaps();
-  }, [
-    user?.id,
-    addRoadmap,
-    // clearRoadmaps
-  ]);
+  }, [user?.id]);
 
   useEffect(() => {
     if (chatBoxRef.current) {

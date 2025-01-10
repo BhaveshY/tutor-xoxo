@@ -39,26 +39,43 @@ export interface ProgressData extends Omit<Roadmap, "content" | "timestamp"> {
 }
 
 export const parseRoadmapContent = (content: string): RoadmapTopic[] => {
-  const lines = content.split("\n");
+  console.log('Parsing content:', content);
+  if (!content) {
+    console.warn('Empty content provided to parseRoadmapContent');
+    return [];
+  }
+
+  const lines = content.split("\n").filter(line => line.trim());
+  console.log('Lines:', lines);
   const topics: RoadmapTopic[] = [];
   let currentTopic: RoadmapTopic | null = null;
 
   lines.forEach((line) => {
-    if (line.startsWith("## Milestone")) {
+    console.log('Processing line:', line);
+    // Check for various heading formats
+    if (line.startsWith("## Milestone") || line.startsWith("## Topic") || line.match(/^##\s+[\w\s]+/)) {
       if (currentTopic) {
+        console.log('Pushing current topic:', currentTopic);
         topics.push(currentTopic);
       }
-      const title =
-        line.replace("## Milestone", "").trim().split(":")[1]?.trim() ||
-        "Untitled";
+      
+      let title = line;
+      if (line.includes(":")) {
+        title = line.split(":")[1]?.trim() || "Untitled";
+      } else {
+        title = line.replace(/^##\s+/, '').trim();
+      }
+      
+      console.log('Creating new topic with title:', title);
       currentTopic = {
         id: Date.now().toString() + Math.random(),
         title,
         subtopics: [],
         completed: false,
       };
-    } else if (line.startsWith("- ") && currentTopic) {
-      const title = line.replace("- ", "").trim();
+    } else if ((line.startsWith("- ") || line.startsWith("* ")) && currentTopic) {
+      const title = line.replace(/^[-*]\s+/, '').trim();
+      console.log('Adding subtopic:', title);
       currentTopic.subtopics.push({
         id: Date.now().toString() + Math.random(),
         title,
@@ -68,9 +85,27 @@ export const parseRoadmapContent = (content: string): RoadmapTopic[] => {
   });
 
   if (currentTopic) {
+    console.log('Pushing final topic:', currentTopic);
     topics.push(currentTopic);
   }
 
+  // If no topics were found with ## headers, treat the whole content as one topic
+  if (topics.length === 0 && lines.length > 0) {
+    console.log('No topics found, creating single topic from content');
+    const mainTopic: RoadmapTopic = {
+      id: Date.now().toString() + Math.random(),
+      title: "Main Topic",
+      subtopics: lines.map(line => ({
+        id: Date.now().toString() + Math.random(),
+        title: line.replace(/^[-*]\s+/, '').trim(),
+        completed: false
+      })),
+      completed: false
+    };
+    topics.push(mainTopic);
+  }
+
+  console.log('Final topics:', topics);
   return topics;
 };
 
@@ -130,17 +165,12 @@ const Progress = () => {
   const [startTimes, setStartTimes] = useState<Record<string, number>>({});
 
   useEffect(() => {
+    // Initialize progress data from store or convert from roadmaps
     if (progressDataStore.length > 0) {
+      console.log('Using existing progress data from store:', progressDataStore);
       setProgressData(progressDataStore);
-    }
-  }, []);
-
-  useEffect(() => {
-    updateProgressDataStore(progressData);
-  }, [progressData]);
-
-  useEffect(() => {
-    if (progressDataStore?.length === 0) {
+    } else if (roadmaps.length > 0) {
+      console.log('Converting roadmaps to progress data:', roadmaps);
       const convertedProgress = roadmaps.map((roadmap) => {
         const topics = parseRoadmapContent(roadmap.content);
         const existingProgress = getProgress(roadmap.id);
@@ -150,8 +180,7 @@ const Progress = () => {
             const metrics = existingProgress.topicMetrics[topic.id];
             if (metrics) {
               topic.subtopics.forEach((subtopic) => {
-                const completed =
-                  metrics.subtopics[subtopic.id]?.completed || false;
+                const completed = metrics.subtopics[subtopic.id]?.completed || false;
                 subtopic.completed = completed;
               });
               topic.completed = topic.subtopics.every((st) => st.completed);
@@ -159,17 +188,33 @@ const Progress = () => {
           });
         }
 
-        return {
+        const progress = {
           id: roadmap.id,
           title: roadmap.title,
           topics,
           progress: calculateProgress(topics),
         };
+        console.log('Converted progress for roadmap:', progress);
+        return progress;
       });
 
+      console.log('Setting progress data:', convertedProgress);
       setProgressData(convertedProgress);
+      updateProgressDataStore(convertedProgress);
     }
-  }, [roadmaps, getProgress]);
+  }, [roadmaps, progressDataStore]);
+
+  useEffect(() => {
+    if (selectedRoadmap) {
+      console.log('Selected roadmap:', selectedRoadmap);
+      console.log('Progress data store:', progressDataStore);
+      const selectedProgress = progressDataStore.find(
+        (p) => p.id === selectedRoadmap
+      );
+      console.log('Selected progress:', selectedProgress);
+      setSelectedProgress(selectedProgress);
+    }
+  }, [selectedRoadmap, progressDataStore]);
 
   const handleUpdateProgressOrder = (data: any) => {
     console.log("Inside handleUpdateProgressOrder");
@@ -441,18 +486,6 @@ const Progress = () => {
       }
     }
   };
-
-  useEffect(() => {
-    if (selectedRoadmap) {
-      const selectedProgress = progressDataStore.find(
-        (p) => p.id === selectedRoadmap
-      );
-      setSelectedProgress(selectedProgress);
-    }
-  }, [selectedRoadmap, progressDataStore]);
-  // const selectedProgress = selectedRoadmap
-  //   ? progressData.find((p) => p.id === selectedRoadmap)
-  //   : null;
 
   return (
     <Container size="xl" py="xl">
