@@ -52,19 +52,15 @@ export const parseRoadmapContent = (content: string): RoadmapTopic[] => {
 
   lines.forEach((line) => {
     console.log('Processing line:', line);
-    // Check for various heading formats
-    if (line.startsWith("## Milestone") || line.startsWith("## Topic") || line.match(/^##\s+[\w\s]+/)) {
+    // Check for topic headers (## Topic N: followed by anything)
+    if (line.match(/^##\s+Topic\s+\d+:/)) {
       if (currentTopic) {
         console.log('Pushing current topic:', currentTopic);
         topics.push(currentTopic);
       }
       
-      let title = line;
-      if (line.includes(":")) {
-        title = line.split(":")[1]?.trim() || "Untitled";
-      } else {
-        title = line.replace(/^##\s+/, '').trim();
-      }
+      // Extract the topic title (everything after the colon)
+      const title = line.split(':')[1]?.trim() || "Untitled Topic";
       
       console.log('Creating new topic with title:', title);
       currentTopic = {
@@ -73,8 +69,10 @@ export const parseRoadmapContent = (content: string): RoadmapTopic[] => {
         subtopics: [],
         completed: false,
       };
-    } else if ((line.startsWith("- ") || line.startsWith("* ")) && currentTopic) {
-      const title = line.replace(/^[-*]\s+/, '').trim();
+    } 
+    // Check for subtopics (must start with - )
+    else if (line.startsWith('- ') && currentTopic) {
+      const title = line.substring(2).trim();
       console.log('Adding subtopic:', title);
       currentTopic.subtopics.push({
         id: Date.now().toString() + Math.random(),
@@ -82,6 +80,7 @@ export const parseRoadmapContent = (content: string): RoadmapTopic[] => {
         completed: false,
       });
     }
+    // Ignore any other lines that don't match the expected format
   });
 
   if (currentTopic) {
@@ -89,17 +88,19 @@ export const parseRoadmapContent = (content: string): RoadmapTopic[] => {
     topics.push(currentTopic);
   }
 
-  // If no topics were found with ## headers, treat the whole content as one topic
+  // If no valid topics were found, create a single topic with all lines as subtopics
   if (topics.length === 0 && lines.length > 0) {
-    console.log('No topics found, creating single topic from content');
+    console.log('No valid topics found, creating single topic from content');
     const mainTopic: RoadmapTopic = {
       id: Date.now().toString() + Math.random(),
       title: "Main Topic",
-      subtopics: lines.map(line => ({
-        id: Date.now().toString() + Math.random(),
-        title: line.replace(/^[-*]\s+/, '').trim(),
-        completed: false
-      })),
+      subtopics: lines
+        .filter(line => line.trim() && !line.startsWith('##'))
+        .map(line => ({
+          id: Date.now().toString() + Math.random(),
+          title: line.replace(/^[-*]\s+/, '').trim(),
+          completed: false
+        })),
       completed: false
     };
     topics.push(mainTopic);

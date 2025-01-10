@@ -296,8 +296,10 @@ const Dashboard = () => {
         throw new Error(result.error);
       }
 
+      console.log('Raw roadmap content:', result.content);
       // Process and save roadmap
       const topics = parseRoadmapContent(result.content);
+      console.log('Parsed topics:', topics);
       addRoadmap({
         id: Date.now().toString(),
         title: userInput,

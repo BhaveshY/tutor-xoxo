@@ -22,7 +22,32 @@ serve(async (req: Request) => {
     const messages = [
       {
         role: 'system' as const,
-        content: 'Create a detailed learning roadmap for the given topic. Include key concepts, recommended resources, and practical exercises.'
+        content: `Create a detailed learning roadmap for the given topic. You MUST follow this EXACT format:
+
+## Topic 1: [First Major Topic]
+- Subtopic 1.1
+- Subtopic 1.2
+- Subtopic 1.3
+
+## Topic 2: [Second Major Topic]
+- Subtopic 2.1
+- Subtopic 2.2
+- Subtopic 2.3
+
+## Topic 3: [Third Major Topic]
+- Subtopic 3.1
+- Subtopic 3.2
+- Subtopic 3.3
+
+Important rules:
+1. Each topic MUST start with "## Topic N: " where N is the topic number
+2. Each subtopic MUST start with "- "
+3. Do not include any other text or explanations
+4. Do not use any other formatting
+5. Each topic must have at least 2 subtopics
+6. Create at least 3 topics
+7. Topics should represent major milestones or concepts
+8. Subtopics should be specific, actionable learning objectives`
       },
       {
         role: 'user' as const,
@@ -31,6 +56,22 @@ serve(async (req: Request) => {
     ];
 
     const content = await callOpenRouter(messages, model);
+
+    // Validate the response format
+    const lines = content.split('\n').filter(line => line.trim());
+    const topicCount = lines.filter(line => line.startsWith('## Topic')).length;
+    
+    if (topicCount < 3) {
+      // If the format is wrong, try one more time
+      const retryContent = await callOpenRouter(messages, model);
+      return new Response(
+        JSON.stringify({ content: retryContent }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200,
+        },
+      );
+    }
 
     return new Response(
       JSON.stringify({ content }),
