@@ -1,105 +1,113 @@
-# TutorXOXO - AI-Powered Learning Platform
+# TutorGPT
 
-TutorXOXO is an interactive learning platform that combines AI-powered tutoring, personalized practice questions, and dynamic learning roadmaps to create an engaging educational experience.
+An AI-powered tutoring platform that uses multiple language models to provide personalized learning experiences.
 
-## 🌟 Features
+## Features
 
-- **AI Tutor**: Get instant help and explanations on any topic
-- **Practice Questions**: Generate custom multiple-choice questions with varying difficulty levels
-- **Learning Roadmaps**: Create personalized learning paths for any subject
-- **Progress Tracking**: Monitor your learning progress with detailed statistics
-- **Subject Specialization**: Support for multiple subjects including Mathematics, Physics, Computer Science, and more
-- **Multiple AI Models**: Choose from various AI models including GPT-4, Grok-2, Claude 3, and Gemini Pro
+- Multiple AI model support through OpenRouter
+- Interactive chat with AI tutors
+- Learning roadmap generation
+- Practice project suggestions
+- Progress tracking
 
-## 🚀 Getting Started
+## Supported Models
 
-### Prerequisites
+- GPT-4 Turbo (OpenAI)
+- Claude 3 Opus (Anthropic)
+- Claude 3 Sonnet (Anthropic)
+- Gemini Pro (Google)
+- Llama 2 70B (Meta)
+- Mistral Medium (Mistral)
 
-- Node.js (v16 or higher)
-- npm or yarn
-- Supabase account
-- LiteLLM API key (for accessing multiple AI models)
+## Setup
 
-### Installation
-
-1. Clone the repository:
+1. Clone the repository
 ```bash
-git clone https://github.com/BhaveshY/tutor-xoxo.git
-cd tutor-xoxo
+git clone https://github.com/yourusername/tutorgpt.git
+cd tutorgpt
 ```
 
-2. Install dependencies:
+2. Install dependencies
 ```bash
 npm install
-# or
-yarn install
 ```
 
 3. Set up environment variables:
+
+Create a `.env` file in the root directory:
+```
+VITE_SUPABASE_URL=your_supabase_url
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+```
+
+4. Set up Supabase Edge Functions:
+
+Create a `.env` file in `supabase/functions`:
+```
+OPENROUTER_API_KEY=your_openrouter_api_key
+SUPABASE_URL=your_supabase_url
+SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
+```
+
+5. Deploy Edge Functions:
 ```bash
-cp supabase/.env.example supabase/.env
+supabase functions deploy
 ```
 
-4. Update the `.env` file with your API keys and configuration:
-```env
-LITELLM_API_KEY=your_litellm_api_key_here
-SUPABASE_URL=your_supabase_url_here
-SUPABASE_ANON_KEY=your_supabase_anon_key_here
-SUPABASE_SERVICE_ROLE_KEY=your_service_role_key_here
+6. Apply Database Migrations:
+```bash
+supabase db push
 ```
 
-5. Start the development server:
+7. Start the development server:
 ```bash
 npm run dev
-# or
-yarn dev
 ```
 
-## 🏗️ Project Structure
+## Environment Setup
 
-```
-tutorxoxo/
-├── src/
-│   ├── components/     # Reusable UI components
-│   ├── pages/         # Page components and routing
-│   ├── services/      # API and service integrations
-│   ├── store/         # State management
-│   └── styles/        # Global styles and themes
-├── supabase/
-│   └── functions/     # Edge Functions for AI integration
-└── public/           # Static assets
-```
+1. Sign up for an OpenRouter account at https://openrouter.ai/
+2. Get your API key from the OpenRouter dashboard
+3. Set up a Supabase project at https://supabase.com/
+4. Get your Supabase URL and anon key from the project settings
+5. Add all required environment variables as described above
 
-## 🛠️ Technologies Used
+## Database Schema
 
-- **Frontend**: React, TypeScript, Mantine UI
-- **Backend**: Supabase, Edge Functions
-- **AI**: LiteLLM (supporting GPT-4, Grok-2, Claude 3, and Gemini Pro)
-- **State Management**: Custom store implementation
-- **Styling**: Mantine UI components and custom CSS
+The application uses the following tables:
 
-## 🤖 Supported AI Models
+1. `chat_messages`
+   - user_id (uuid)
+   - message (text)
+   - is_user (boolean)
+   - provider (text, nullable)
+   - created_at (timestamp)
 
-The platform supports multiple AI models through LiteLLM:
+2. `roadmaps`
+   - id (uuid)
+   - user_id (uuid)
+   - title (text)
+   - content (text)
+   - provider (text, nullable)
+   - created_at (timestamp)
 
-- **GPT-4 Turbo**: OpenAI's most advanced model
-- **Grok-2**: xAI's latest model with real-time knowledge
-- **Claude 3 Opus**: Anthropic's most capable model
-- **Gemini Pro**: Google's advanced language model
+3. `projects`
+   - id (uuid)
+   - roadmap_id (uuid)
+   - title (text)
+   - description (text)
+   - requirements (text)
+   - provider (text, nullable)
+   - created_at (timestamp)
 
-Each model can be selected from the UI for different tasks:
-- Tutoring and explanations
-- Practice question generation
-- Learning roadmap creation
-
-## 🤝 Contributing
+## Contributing
 
 1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
-## 📝 License
+## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License - see the LICENSE file for details.

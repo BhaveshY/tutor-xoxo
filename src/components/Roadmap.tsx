@@ -1,19 +1,18 @@
 import React, { useEffect, useState } from 'react';
-import { llmService } from '../services/llmService.ts';
+import { llmService, LLMModel } from '../services/llmService.ts';
 import { databaseService, LearningRoadmap } from '../services/databaseService.ts';
 import { useAuth } from '../hooks/useAuth.ts';
 import { ErrorMessage } from './ErrorMessage.tsx';
 import { Projects } from './Projects.tsx';
 import ReactMarkdown from 'react-markdown';
-import { LLMProvider } from "../services/llmService.ts";
 import { Paper, Text, TextInput, Button, Stack, Group, Loader, Box } from '@mantine/core';
 
 interface RoadmapProps {
   className?: string;
-  provider: LLMProvider;
+  model: LLMModel;
 }
 
-export const Roadmap: React.FC<RoadmapProps> = ({ className, provider }) => {
+export const Roadmap: React.FC<RoadmapProps> = ({ className, model }) => {
   const [topic, setTopic] = useState('');
   const [roadmaps, setRoadmaps] = useState<LearningRoadmap[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -49,7 +48,7 @@ export const Roadmap: React.FC<RoadmapProps> = ({ className, provider }) => {
     setIsLoading(true);
     setError(null);
     try {
-      const response = await llmService.generateRoadmap(userId, topic);
+      const response = await llmService.generateRoadmap(userId, topic, model);
       if (response.error) {
         throw new Error(response.error);
       }
@@ -107,7 +106,7 @@ export const Roadmap: React.FC<RoadmapProps> = ({ className, provider }) => {
                 <ReactMarkdown className="prose">
                   {roadmap.content}
                 </ReactMarkdown>
-                <Projects provider={provider} roadmapId={roadmap.id} />
+                <Projects model={model} roadmapId={roadmap.id} />
               </Stack>
             </Paper>
           ))}

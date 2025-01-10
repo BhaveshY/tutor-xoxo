@@ -1,28 +1,31 @@
 import React from 'react';
 import { Select } from '@mantine/core';
-import type { LLMProvider } from '../services/llmService.ts';
+import { LLMModel } from '../services/llmService.ts';
 
 interface LLMSelectorProps {
-  value: LLMProvider;
-  onChange: (value: LLMProvider) => void;
+  value: LLMModel;
+  onChange: (value: LLMModel) => void;
+  className?: string;
 }
 
-const modelOptions = [
-  { value: 'gpt-4', label: 'GPT-4 Turbo' },
-  { value: 'grok-2-1212', label: 'Grok-2' },
-  { value: 'claude-3', label: 'Claude 3 Opus' },
-  { value: 'gemini-pro', label: 'Gemini Pro' }
+const models: { value: LLMModel; label: string }[] = [
+  { value: 'openai/gpt-4-turbo-preview', label: 'GPT-4 Turbo' },
+  { value: 'anthropic/claude-3-opus', label: 'Claude 3 Opus' },
+  { value: 'anthropic/claude-3-sonnet', label: 'Claude 3 Sonnet' },
+  { value: 'google/gemini-pro', label: 'Gemini Pro' },
+  { value: 'meta-llama/llama-2-70b-chat', label: 'Llama 2 70B' },
+  { value: 'mistral/mistral-medium', label: 'Mistral Medium' }
 ];
 
-export const LLMSelector: React.FC<LLMSelectorProps> = ({ value, onChange }) => {
+export const LLMSelector: React.FC<LLMSelectorProps> = ({ value, onChange, className }) => {
   return (
     <Select
       label="AI Model"
-      placeholder="Select model"
+      description="Select the AI model to use"
+      data={models}
       value={value}
-      onChange={(val) => onChange(val as LLMProvider)}
-      data={modelOptions}
-      style={{ width: 200 }}
+      onChange={(value) => onChange(value as LLMModel)}
+      className={className}
     />
   );
 }; 

@@ -1,13 +1,38 @@
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import { corsHeaders } from '../_shared/cors.ts';
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4'
+import { corsHeaders } from '../_shared/cors.ts'
+import OpenAI from "https://esm.sh/openai@4.20.1"
 
 interface PracticeRequest {
   prompt: string;
-  difficulty: 'easy' | 'medium' | 'hard';
-  model: string;
+  difficulty?: 'easy' | 'medium' | 'hard';
+  model?: string;
 }
 
-serve(async (req: Request) => {
+// Function to clean up the AI response by removing preamble and extracting questions
+function cleanupResponse(content: string): string {
+  // Remove any text before the first question
+  const questionStart = content.indexOf('Q1:');
+  if (questionStart === -1) {
+    throw new Error('No questions found in the response');
+  }
+  
+  // Get only the questions part
+  const questionsOnly = content.slice(questionStart);
+  
+  // Split into questions and filter out any empty lines
+  const questionParts: string[] = questionsOnly
+    .split(/Q\d+:/)
+    .filter(q => q.trim());
+    
+  const questions = questionParts
+    .map((q, index) => `Q${index + 1}:${q.trim()}`)
+    .join('\n\n');
+    
+  return questions;
+}
+
+serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
@@ -21,7 +46,18 @@ serve(async (req: Request) => {
 
     const systemMessage = {
       role: 'system' as const,
-      content: `You are an expert at creating practice questions. Generate ${difficulty} difficulty questions that help students master the concepts while maintaining an appropriate challenge level.`
+      content: `You are an expert at creating practice questions. Generate ${difficulty} difficulty questions that help students master the concepts while maintaining an appropriate challenge level.
+      
+Format EXACTLY as follows:
+Q1: [Question]
+A) [Option]
+B) [Option]
+C) [Option]
+D) [Option]
+Correct: [A/B/C/D]
+Explanation: [Explanation]
+
+DO NOT add any introduction or extra text. Start directly with Q1.`
     };
 
     const messages = [systemMessage, { role: 'user' as const, content: prompt }];
@@ -81,8 +117,13 @@ serve(async (req: Request) => {
     }
 
     const result = await response.json();
+    const rawContent = result.choices[0].message.content;
+    
+    // Clean up the response to remove any preamble
+    const cleanedContent = cleanupResponse(rawContent);
+
     const aiResponse = {
-      content: result.choices[0].message.content
+      content: cleanedContent
     };
 
     return new Response(JSON.stringify(aiResponse), {
