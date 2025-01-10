@@ -1,18 +1,50 @@
 import { createClient } from '@supabase/supabase-js';
 import { databaseService } from './databaseService.ts';
 
-// Available models from OpenRouter
-export type LLMModel = 
+interface ChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+export type LLMProvider = 
   | 'openai/gpt-4-turbo-preview'
-  | 'anthropic/claude-3-opus'
-  | 'anthropic/claude-3-sonnet'
-  | 'google/gemini-pro'
-  | 'meta-llama/llama-2-70b-chat'
-  | 'mistral/mistral-medium';
+  | 'groq/grok-2-1212'
+  | 'anthropic/claude-3-5-sonnet-20241022';
+
+interface PracticeQuestion {
+  id: string;
+  question: string;
+  options: {
+    A: string;
+    B: string;
+    C: string;
+    D: string;
+  };
+  correct: "A" | "B" | "C" | "D";
+  explanation: string;
+  selectedAnswer?: string;
+  isCorrect?: boolean;
+  difficulty: "easy" | "medium" | "hard";
+}
+
+type PracticeParams = {
+  prompt: string;
+  difficulty: 'easy' | 'medium' | 'hard';
+  provider?: LLMProvider;
+};
 
 interface LLMResponse {
-  content: string;
+  content: any;
   error?: string;
+  metadata?: {
+    count?: number;
+    difficulty?: string;
+    provider?: string;
+  };
+}
+
+interface PracticeResponse extends LLMResponse {
+  content: PracticeQuestion[];
 }
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -21,96 +53,126 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 export const llmService = {
-  generateTutorResponse: async (userId: string, prompt: string, model: LLMModel = 'openai/gpt-4-turbo-preview'): Promise<LLMResponse> => {
+  generateTutorResponse: async (prompt: string, chatHistory: ChatMessage[] = [], provider: LLMProvider = 'openai/gpt-4-turbo-preview'): Promise<LLMResponse> => {
     try {
-      // First, save the user's message
-      await databaseService.saveChatMessage({
-        user_id: userId,
-        message: prompt,
-        is_user: true
-      });
-
-      // Call the tutor edge function
-      const { data, error } = await supabase.functions.invoke('tutor', {
-        body: { prompt, model }
+      const { data, error } = await supabase.functions.invoke<LLMResponse>('tutor', {
+        body: { 
+          prompt,
+          chatHistory,
+          model: provider,
+          subject: prompt.match(/\[Subject: (.+?)\]/)?.[1] || 'General'
+        },
       });
 
       if (error) throw error;
-
-      // Then save the tutor's response
-      await databaseService.saveChatMessage({
-        user_id: userId,
-        message: data.content,
-        is_user: false,
-        provider: model // Store which model generated the response
-      });
-
-      return data;
+      return data || { content: '', error: 'No response data' };
     } catch (error) {
       console.error('Error generating tutor response:', error);
       return { error: error instanceof Error ? error.message : 'An unknown error occurred', content: '' };
     }
   },
 
-  generateRoadmap: async (userId: string, prompt: string, model: LLMModel = 'openai/gpt-4-turbo-preview'): Promise<LLMResponse> => {
+  generateRoadmap: async (prompt: string, provider: LLMProvider = 'openai/gpt-4-turbo-preview'): Promise<LLMResponse> => {
     try {
-      // Call the roadmap edge function
-      const { data, error } = await supabase.functions.invoke('roadmap', {
-        body: { prompt, model }
+      const { data, error } = await supabase.functions.invoke<LLMResponse>('roadmap', {
+        body: { prompt, model: provider },
       });
 
       if (error) throw error;
-
-      // Save the roadmap to the database
-      if (data.content) {
-        await databaseService.createRoadmap({
-          user_id: userId,
-          title: prompt,
-          content: data.content,
-          provider: model // Store which model generated the roadmap
-        });
-      }
-
-      return data;
+      return data || { content: '', error: 'No response data' };
     } catch (error) {
       console.error('Error generating roadmap:', error);
       return { error: error instanceof Error ? error.message : 'An unknown error occurred', content: '' };
     }
   },
 
-  generateProjects: async (userId: string, roadmapId: string, model: LLMModel = 'openai/gpt-4-turbo-preview'): Promise<LLMResponse> => {
+  generateProjects: async (prompt: string, provider: LLMProvider = 'openai/gpt-4-turbo-preview'): Promise<LLMResponse> => {
     try {
-      // Call the projects edge function
-      const { data, error } = await supabase.functions.invoke('projects', {
-        body: { roadmapId, model }
+      const { data, error } = await supabase.functions.invoke<LLMResponse>('projects', {
+        body: { prompt, model: provider },
       });
 
       if (error) throw error;
-
-      try {
-        const projects = JSON.parse(data.content);
-        
-        // Add roadmap_id and provider to each project
-        const projectsToSave = projects.map((project: any) => ({
-          ...project,
-          roadmap_id: roadmapId,
-          provider: model
-        }));
-
-        await databaseService.createProjects(projectsToSave);
-      } catch (error) {
-        console.error('Error parsing projects JSON:', error);
-        throw new Error('Failed to parse projects from AI response');
-      }
-
-      return data;
+      return data || { content: '', error: 'No response data' };
     } catch (error) {
-      console.error('Error generating projects:', error);
+      console.error('Error generating project suggestions:', error);
       return { error: error instanceof Error ? error.message : 'An unknown error occurred', content: '' };
     }
   },
 
   getChatHistory: async (userId: string) => {
     return databaseService.getChatHistory(userId);
-  }
+  },
+
+  generatePracticeQuestions: async ({ prompt, difficulty, provider = 'openai/gpt-4-turbo-preview' }: PracticeParams): Promise<PracticeResponse> => {
+    try {
+      console.log('Generating practice questions with params:', { prompt, difficulty, provider });
+      
+      const { data, error } = await supabase.functions.invoke<{ content: PracticeQuestion[] }>('practice', {
+        body: { prompt, difficulty, model: provider },
+      });
+
+      console.log('Raw response from practice function:', data);
+
+      if (error) {
+        console.error('Supabase function error:', error);
+        throw error;
+      }
+
+      if (!data) {
+        console.error('No data returned from practice function');
+        throw new Error('No data returned from practice function');
+      }
+
+      if (!data.content) {
+        console.error('No content in response:', data);
+        throw new Error('No content in response');
+      }
+
+      if (!Array.isArray(data.content)) {
+        console.error('Content is not an array:', data.content);
+        throw new Error('Invalid response format: content is not an array');
+      }
+
+      // Validate each question
+      const validatedQuestions = data.content.map((q, index) => {
+        console.log(`Validating question ${index + 1}:`, q);
+        
+        if (!q.id || !q.question || !q.options || !q.correct || !q.explanation) {
+          console.error(`Invalid question format for question ${index + 1}:`, q);
+          throw new Error(`Invalid question format for question ${index + 1}`);
+        }
+
+        // Ensure correct answer is valid
+        if (!['A', 'B', 'C', 'D'].includes(q.correct)) {
+          console.error(`Invalid correct answer for question ${index + 1}:`, q.correct);
+          throw new Error(`Invalid correct answer format in question ${index + 1}`);
+        }
+
+        // Return validated question
+        return {
+          id: q.id,
+          question: q.question,
+          options: {
+            A: q.options.A,
+            B: q.options.B,
+            C: q.options.C,
+            D: q.options.D
+          },
+          correct: q.correct as "A" | "B" | "C" | "D",
+          explanation: q.explanation,
+          difficulty: q.difficulty || difficulty
+        };
+      });
+
+      console.log('Validated questions:', validatedQuestions);
+
+      return { 
+        content: validatedQuestions
+      };
+    } catch (error) {
+      console.error('Error generating practice questions:', error);
+      return { error: error instanceof Error ? error.message : 'An unknown error occurred', content: [] };
+    }
+  },
 }; 

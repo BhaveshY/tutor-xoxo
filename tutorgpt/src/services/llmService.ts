@@ -9,8 +9,13 @@ export type LLMProvider =
   | 'anthropic/claude-3-5-sonnet-20241022';
 
 interface LLMResponse {
-  content: string;
+  content: any;
   error?: string;
+  metadata?: {
+    count?: number;
+    difficulty?: string;
+    provider?: string;
+  };
 }
 
 interface ChatMessage {
@@ -23,6 +28,24 @@ type PracticeParams = {
   difficulty: 'easy' | 'medium' | 'hard';
   provider?: LLMProvider;
 };
+
+interface PracticeQuestion {
+  id: string;
+  question: string;
+  options: {
+    A: string;
+    B: string;
+    C: string;
+    D: string;
+  };
+  correct: "A" | "B" | "C" | "D";
+  explanation: string;
+  difficulty: "easy" | "medium" | "hard";
+}
+
+interface PracticeResponse extends LLMResponse {
+  content: PracticeQuestion[];
+}
 
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
@@ -60,17 +83,35 @@ export const llmService = {
     }
   },
 
-  generatePracticeQuestions: async ({ prompt, difficulty, provider = 'openai/gpt-4-turbo-preview' }: PracticeParams): Promise<LLMResponse> => {
+  generatePracticeQuestions: async ({ prompt, difficulty, provider = 'openai/gpt-4-turbo-preview' }: PracticeParams): Promise<PracticeResponse> => {
     try {
-      const { data, error } = await supabase.functions.invoke<{ content: string }>('practice', {
+      const { data, error } = await supabase.functions.invoke<{ 
+        content: PracticeQuestion[];
+        metadata: {
+          count: number;
+          difficulty: string;
+          provider: string;
+        };
+      }>('practice', {
         body: { prompt, difficulty, model: provider },
       });
 
       if (error) throw error;
-      return { content: data?.content || '' };
+
+      console.log('Received data from practice function:', JSON.stringify(data, null, 2));
+
+      if (!data?.content || !Array.isArray(data.content)) {
+        console.error('Invalid response format:', data);
+        throw new Error('Invalid response format: content is not an array');
+      }
+
+      return { 
+        content: data.content,
+        metadata: data.metadata
+      };
     } catch (error) {
       console.error('Error generating practice questions:', error);
-      return { error: error instanceof Error ? error.message : 'An unknown error occurred', content: '' };
+      return { error: error instanceof Error ? error.message : 'An unknown error occurred', content: [] };
     }
   },
 }; 

@@ -16,6 +16,7 @@ export type PracticeDifficulty = 'easy' | 'medium' | 'hard';
 interface PracticeParams {
   prompt: string;
   difficulty: PracticeDifficulty;
+  model?: string;
 }
 
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
@@ -23,12 +24,24 @@ const supabase = createClient(supabaseUrl, supabaseAnonKey);
 export const practiceService = {
   generatePracticeQuestion: async (userId: string, params: PracticeParams): Promise<PracticeResponse> => {
     try {
+      console.log('Generating practice question with params:', params);
+      
       // Get question from LLM
       const { data, error } = await supabase.functions.invoke('practice', {
         body: params,
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error from practice function:', error);
+        throw error;
+      }
+
+      if (!data) {
+        console.error('No data returned from practice function');
+        throw new Error('No data returned from practice function');
+      }
+
+      console.log('Received response from practice function:', data);
 
       // Create the practice session in the database
       if (data.content) {
@@ -41,6 +54,8 @@ export const practiceService = {
           score: undefined
         });
 
+        console.log('Created practice session:', session);
+
         // Return both the question and session ID
         return {
           ...data,
@@ -51,12 +66,17 @@ export const practiceService = {
       return data;
     } catch (error) {
       console.error('Error generating practice question:', error);
-      return { error: error instanceof Error ? error.message : 'An unknown error occurred', content: '' };
+      return { 
+        error: error instanceof Error ? error.message : 'An unknown error occurred', 
+        content: '' 
+      };
     }
   },
 
   submitAnswer: async (sessionId: string, answer: string): Promise<{ score: number }> => {
     try {
+      console.log('Submitting answer for session:', sessionId);
+      
       // First, get the session to include the question in the evaluation
       const session = await databaseService.getPracticeSessions(sessionId);
       if (!session || session.length === 0) {
@@ -64,6 +84,7 @@ export const practiceService = {
       }
 
       const currentSession = session[0];
+      console.log('Found session:', currentSession);
 
       // Call the evaluation endpoint with both question and answer
       const { data, error } = await supabase.functions.invoke('evaluate-answer', {
@@ -74,7 +95,17 @@ export const practiceService = {
         },
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error from evaluate-answer function:', error);
+        throw error;
+      }
+
+      if (!data) {
+        console.error('No data returned from evaluate-answer function');
+        throw new Error('No data returned from evaluate-answer function');
+      }
+
+      console.log('Received evaluation response:', data);
 
       // Update the practice session with the answer and score
       await databaseService.updatePracticeSession(sessionId, {
@@ -82,6 +113,8 @@ export const practiceService = {
         score: data.score,
         completed_at: new Date().toISOString()
       });
+
+      console.log('Updated practice session with score:', data.score);
 
       return data;
     } catch (error) {
@@ -91,11 +124,27 @@ export const practiceService = {
   },
 
   getPracticeHistory: async (userId: string): Promise<PracticeSession[]> => {
-    return databaseService.getPracticeSessions(userId);
+    try {
+      console.log('Getting practice history for user:', userId);
+      const history = await databaseService.getPracticeSessions(userId);
+      console.log('Retrieved practice history:', history);
+      return history;
+    } catch (error) {
+      console.error('Error getting practice history:', error);
+      throw error;
+    }
   },
 
   getCurrentSession: async (sessionId: string): Promise<PracticeSession | null> => {
-    const sessions = await databaseService.getPracticeSessions(sessionId);
-    return sessions.length > 0 ? sessions[0] : null;
+    try {
+      console.log('Getting current session:', sessionId);
+      const sessions = await databaseService.getPracticeSessions(sessionId);
+      const session = sessions.length > 0 ? sessions[0] : null;
+      console.log('Retrieved current session:', session);
+      return session;
+    } catch (error) {
+      console.error('Error getting current session:', error);
+      throw error;
+    }
   }
 }; 

@@ -21,12 +21,12 @@ export interface PracticeSession {
   id: string;
   user_id: string;
   subject: string;
-  difficulty: string;
   question: string;
-  answer: string | null;
-  score: number | null;
-  created_at: string;
-  completed_at: string | null;
+  answer?: string;
+  score?: number;
+  difficulty: 'easy' | 'medium' | 'hard';
+  created_at?: Date;
+  updated_at?: Date;
 }
 
 export interface LearningRoadmap {

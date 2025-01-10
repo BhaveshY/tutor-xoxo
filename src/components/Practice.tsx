@@ -3,11 +3,11 @@ import { practiceService, PracticeDifficulty } from '../services/practiceService
 import { PracticeSession } from '../services/databaseService.ts';
 import { useAuth } from '../hooks/useAuth.ts';
 import { ErrorMessage } from './ErrorMessage.tsx';
-import { llmService, type LLMProvider } from '../services/llmService.ts';
+import { type LLMModel } from '../services/llmService.ts';
 
 interface PracticeProps {
   className?: string;
-  provider: LLMProvider;
+  provider: LLMModel;
 }
 
 export const Practice: React.FC<PracticeProps> = ({ className, provider }) => {
@@ -33,7 +33,9 @@ export const Practice: React.FC<PracticeProps> = ({ className, provider }) => {
     setIsLoadingHistory(true);
     setError(null);
     try {
+      console.log('Loading practice history for user:', userId);
       const history = await practiceService.getPracticeHistory(userId);
+      console.log('Loaded practice history:', history);
       setPracticeHistory(history);
     } catch (error) {
       console.error('Error loading practice history:', error);
@@ -50,15 +52,25 @@ export const Practice: React.FC<PracticeProps> = ({ className, provider }) => {
     setIsLoading(true);
     setError(null);
     try {
+      console.log('Starting practice session with subject:', subject);
       const response = await practiceService.generatePracticeQuestion(userId, {
         prompt: subject,
-        difficulty
+        difficulty,
+        model: provider
       });
+      
       if (response.error) {
+        console.error('Error response from practice service:', response.error);
         throw new Error(response.error);
       }
+
+      console.log('Practice question generated:', response);
       await loadPracticeHistory();
+      
+      console.log('Loading latest session');
       const latestSession = (await practiceService.getPracticeHistory(userId))[0];
+      console.log('Latest session:', latestSession);
+      
       setCurrentSession(latestSession);
       setSubject('');
     } catch (error) {
@@ -76,7 +88,10 @@ export const Practice: React.FC<PracticeProps> = ({ className, provider }) => {
     setIsLoading(true);
     setError(null);
     try {
+      console.log('Submitting answer for session:', currentSession.id);
       await practiceService.submitAnswer(currentSession.id, answer);
+      console.log('Answer submitted successfully');
+      
       await loadPracticeHistory();
       setAnswer('');
       setCurrentSession(null);

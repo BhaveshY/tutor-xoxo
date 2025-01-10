@@ -1,7 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4'
 import { corsHeaders } from '../_shared/cors.ts'
-import OpenAI from "https://esm.sh/openai@4.20.1"
 
 interface PracticeRequest {
   prompt: string;
@@ -9,27 +7,98 @@ interface PracticeRequest {
   model?: string;
 }
 
-// Function to clean up the AI response by removing preamble and extracting questions
-function cleanupResponse(content: string): string {
-  // Remove any text before the first question
-  const questionStart = content.indexOf('Q1:');
-  if (questionStart === -1) {
-    throw new Error('No questions found in the response');
-  }
+interface Question {
+  id: string;
+  question: string;
+  options: {
+    A: string;
+    B: string;
+    C: string;
+    D: string;
+  };
+  correct: string;
+  explanation: string;
+  difficulty: string;
+}
+
+function parseQuestions(text: string, difficulty: string): Question[] {
+  console.log('Parsing questions from text:', text);
   
-  // Get only the questions part
-  const questionsOnly = content.slice(questionStart);
-  
-  // Split into questions and filter out any empty lines
-  const questionParts: string[] = questionsOnly
-    .split(/Q\d+:/)
-    .filter(q => q.trim());
+  // Split into individual questions
+  const questions = text.split(/\n\s*\n/)
+    .filter(q => q.trim().startsWith('Q'))
+    .map(q => q.trim());
+
+  console.log('Split questions:', questions);
+
+  const parsedQuestions = questions.map((questionText, index) => {
+    console.log(`Parsing question ${index + 1}:`, questionText);
     
-  const questions = questionParts
-    .map((q, index) => `Q${index + 1}:${q.trim()}`)
-    .join('\n\n');
+    const lines = questionText.split('\n').map(line => line.trim());
+    console.log('Question lines:', lines);
     
-  return questions;
+    // Get question text
+    const questionLine = lines[0];
+    const question = questionLine.replace(/^Q\d+:\s*/, '').trim();
+    console.log('Extracted question:', question);
+
+    // Get options
+    const options = {
+      A: lines.find(l => l.startsWith('A)'))?.replace(/^A\)\s*/, '').trim() || '',
+      B: lines.find(l => l.startsWith('B)'))?.replace(/^B\)\s*/, '').trim() || '',
+      C: lines.find(l => l.startsWith('C)'))?.replace(/^C\)\s*/, '').trim() || '',
+      D: lines.find(l => l.startsWith('D)'))?.replace(/^D\)\s*/, '').trim() || ''
+    };
+    console.log('Extracted options:', options);
+
+    // Get correct answer
+    const correctLine = lines.find(l => l.startsWith('Correct:'));
+    const correct = correctLine?.replace(/^Correct:\s*/, '').trim() || '';
+    console.log('Extracted correct answer:', correct);
+
+    // Get explanation
+    const explanationIndex = lines.findIndex(l => l.startsWith('Explanation:'));
+    const explanation = explanationIndex >= 0 
+      ? lines.slice(explanationIndex)
+          .join(' ')
+          .replace(/^Explanation:\s*/, '')
+          .trim()
+      : '';
+    console.log('Extracted explanation:', explanation);
+
+    // Validate
+    if (!question || !options.A || !options.B || !options.C || !options.D || !correct || !explanation) {
+      console.error('Missing required fields:', {
+        hasQuestion: !!question,
+        hasOptionA: !!options.A,
+        hasOptionB: !!options.B,
+        hasOptionC: !!options.C,
+        hasOptionD: !!options.D,
+        hasCorrect: !!correct,
+        hasExplanation: !!explanation
+      });
+      throw new Error(`Invalid question format for question ${index + 1}`);
+    }
+
+    if (!['A', 'B', 'C', 'D'].includes(correct)) {
+      console.error('Invalid correct answer:', correct);
+      throw new Error(`Invalid correct answer format in question ${index + 1}`);
+    }
+
+    const questionObj = {
+      id: `q${index + 1}`,
+      question,
+      options,
+      correct,
+      explanation,
+      difficulty
+    };
+    console.log('Created question object:', questionObj);
+    return questionObj;
+  });
+
+  console.log('Final parsed questions:', parsedQuestions);
+  return parsedQuestions;
 }
 
 serve(async (req) => {
@@ -38,104 +107,91 @@ serve(async (req) => {
   }
 
   try {
-    const {
-      prompt,
-      difficulty = 'medium',
-      model = 'openai/gpt-4-turbo-preview'
-    } = await req.json() as PracticeRequest;
+    const { prompt, difficulty = 'medium', model = 'openrouter/anthropic/claude-3-sonnet' } = await req.json() as PracticeRequest;
+    console.log('Received request:', { prompt, difficulty, model });
+    
+    const apiKey = Deno.env.get('OPENROUTER_API_KEY');
+    if (!apiKey) throw new Error('OpenRouter API key not found');
 
-    const systemMessage = {
-      role: 'system' as const,
-      content: `You are an expert at creating practice questions. Generate ${difficulty} difficulty questions that help students master the concepts while maintaining an appropriate challenge level.
-      
-Format EXACTLY as follows:
+    const systemPrompt = `Generate exactly 3 ${difficulty} difficulty multiple choice questions about: ${prompt}.
+Each question must follow this EXACT format:
+
 Q1: [Question]
-A) [Option]
-B) [Option]
-C) [Option]
-D) [Option]
+A) [Option A]
+B) [Option B]
+C) [Option C]
+D) [Option D]
 Correct: [A/B/C/D]
 Explanation: [Explanation]
 
-DO NOT add any introduction or extra text. Start directly with Q1.`
-    };
+Separate questions with a blank line. Start questions with Q1:, Q2:, Q3:.`;
 
-    const messages = [systemMessage, { role: 'user' as const, content: prompt }];
+    console.log('Making API request with system prompt:', systemPrompt);
 
-    // Get the appropriate API key and base URL based on the provider
-    const [provider] = model.split('/');
-    let apiKey: string | undefined;
-    let apiBase: string;
-    let modelName: string;
-    
-    switch (provider) {
-      case 'openai':
-        apiKey = Deno.env.get('OPENAI_API_KEY');
-        apiBase = 'https://api.openai.com/v1';
-        modelName = 'gpt-4-1106-preview';
-        break;
-      case 'groq':
-        apiKey = Deno.env.get('GROQ_API_KEY');
-        apiBase = 'https://api.groq.com/openai/v1';
-        modelName = 'mixtral-8x7b-32768';
-        break;
-      case 'anthropic':
-        apiKey = Deno.env.get('ANTHROPIC_API_KEY');
-        apiBase = 'https://api.anthropic.com/v1';
-        modelName = 'claude-3-sonnet-20240229';
-        break;
-      default:
-        apiKey = Deno.env.get('OPENAI_API_KEY');
-        apiBase = 'https://api.openai.com/v1';
-        modelName = 'gpt-4-1106-preview';
-    }
-
-    if (!apiKey) {
-      throw new Error(`API key not found for provider ${provider}`);
-    }
-
-    // Make request to provider's API directly
-    const response = await fetch(`${apiBase}/chat/completions`, {
+    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${apiKey}`,
-        ...(provider === 'anthropic' ? { 'anthropic-version': '2023-06-01' } : {})
+        'HTTP-Referer': 'https://tutorgptai.vercel.app',
+        'X-Title': 'TutorGPT'
       },
       body: JSON.stringify({
-        model: modelName,
-        messages,
-        temperature: 0.7,
-        max_tokens: 2000
+        model: model,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: prompt }
+        ],
+        temperature: 0.5,
+        max_tokens: 4000
       })
     });
 
     if (!response.ok) {
-      const error = await response.json();
-      console.error('API error response:', error);
-      throw new Error(error.message || `API error: ${response.statusText}`);
+      console.error('API error:', response.statusText);
+      throw new Error(`API error: ${response.statusText}`);
     }
 
     const result = await response.json();
-    const rawContent = result.choices[0].message.content;
+    console.log('API response:', result);
     
-    // Clean up the response to remove any preamble
-    const cleanedContent = cleanupResponse(rawContent);
+    const content = result.choices[0].message.content;
+    console.log('Raw content:', content);
+    
+    // Parse questions into structured format
+    const questions = parseQuestions(content, difficulty);
+    console.log('Parsed questions:', questions);
 
-    const aiResponse = {
-      content: cleanedContent
-    };
+    // Take only first 3 questions
+    const finalQuestions = questions.slice(0, 3);
+    console.log('Final questions:', finalQuestions);
 
-    return new Response(JSON.stringify(aiResponse), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 200,
-    });
+    // Create response object
+    const responseObj = { content: finalQuestions };
+    console.log('Response object:', responseObj);
+
+    // Return structured response
+    return new Response(
+      JSON.stringify(responseObj),
+      {
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
 
   } catch (error) {
     console.error('Error:', error);
-    return new Response(JSON.stringify({ error: (error as Error).message }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 500,
-    });
+    return new Response(
+      JSON.stringify({ 
+        error: error instanceof Error ? error.message : 'An unknown error occurred',
+        content: [] 
+      }),
+      {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 500,
+      }
+    );
   }
 }); 

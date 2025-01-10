@@ -37,6 +37,18 @@ export interface Project {
   provider?: string;
 }
 
+export interface PracticeSession {
+  id: string;
+  user_id: string;
+  subject: string;
+  difficulty: string;
+  question: string;
+  answer?: string;
+  score?: number;
+  created_at?: string;
+  completed_at?: string;
+}
+
 export const databaseService = {
   saveChatMessage: async (message: ChatMessage) => {
     const { error } = await supabase
@@ -93,5 +105,36 @@ export const databaseService = {
       .insert(projects);
 
     if (error) throw error;
+  },
+
+  createPracticeSession: async (session: Omit<PracticeSession, 'id' | 'created_at'>) => {
+    const { data, error } = await supabase
+      .from('practice_sessions')
+      .insert([session])
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data as PracticeSession;
+  },
+
+  updatePracticeSession: async (sessionId: string, updates: Partial<PracticeSession>) => {
+    const { error } = await supabase
+      .from('practice_sessions')
+      .update(updates)
+      .eq('id', sessionId);
+
+    if (error) throw error;
+  },
+
+  getPracticeSessions: async (userIdOrSessionId: string) => {
+    const { data, error } = await supabase
+      .from('practice_sessions')
+      .select('*')
+      .or(`user_id.eq.${userIdOrSessionId},id.eq.${userIdOrSessionId}`)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data as PracticeSession[];
   }
 };

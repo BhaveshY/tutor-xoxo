@@ -134,9 +134,7 @@ const Dashboard = () => {
   const [selectedRoadmap, setSelectedRoadmap] = useState<SavedRoadmap | null>(
     null
   );
-  const [practiceQuestions, setPracticeQuestions] = useState<
-    PracticeQuestion[]
-  >([]);
+  const [practiceQuestions, setPracticeQuestions] = useState<PracticeQuestion[]>([]);
   const [showExplanation, setShowExplanation] = useState<
     Record<string, boolean>
   >({});
@@ -347,38 +345,97 @@ const Dashboard = () => {
     }
 
     setIsLoading(true);
-    try {
-      const result = await llmService.generatePracticeQuestions({
-        prompt: userInput,
-        difficulty: selectedDifficulty as "easy" | "medium" | "hard",
-        provider: selectedModel,
-      });
+    let retryCount = 0;
+    const maxRetries = 2;
 
-      if (result.error) {
-        throw new Error(result.error);
+    while (retryCount <= maxRetries) {
+      try {
+        console.log(`Attempt ${retryCount + 1} to generate practice questions...`);
+        const result = await llmService.generatePracticeQuestions({
+          prompt: userInput,
+          difficulty: selectedDifficulty as "easy" | "medium" | "hard",
+          provider: selectedModel,
+        });
+
+        if (result.error) {
+          throw new Error(result.error);
+        }
+
+        console.log('Raw result:', JSON.stringify(result, null, 2));
+        
+        // Ensure we have a valid response
+        if (!result.content) {
+          throw new Error('No content in response');
+        }
+
+        // Validate the questions array
+        if (!Array.isArray(result.content)) {
+          console.error('Content is not an array:', result.content);
+          throw new Error('Invalid response format: content is not an array');
+        }
+
+        if (result.content.length === 0) {
+          throw new Error('No questions returned');
+        }
+
+        // Validate each question has required fields
+        const questions = result.content.map((q: any, index: number) => {
+          if (!q.id || !q.question || !q.options || !q.correct || !q.explanation) {
+            console.error(`Invalid question format for question ${index + 1}:`, q);
+            throw new Error(`Invalid question format for question ${index + 1}`);
+          }
+
+          // Ensure the question object has the correct structure
+          return {
+            id: q.id,
+            question: q.question,
+            options: {
+              A: q.options.A,
+              B: q.options.B,
+              C: q.options.C,
+              D: q.options.D
+            },
+            correct: q.correct,
+            explanation: q.explanation,
+            difficulty: q.difficulty || selectedDifficulty,
+            selectedAnswer: undefined,
+            isCorrect: undefined
+          };
+        });
+
+        console.log('Validated questions:', questions);
+        
+        setPracticeQuestions(questions);
+        setUserInput("");
+        setPracticeStats({
+          total: questions.length,
+          correct: 0,
+          incorrect: 0,
+          streak: 0,
+        });
+
+        // If we get here, we've successfully processed the questions
+        break;
+
+      } catch (error) {
+        console.error(`Error in attempt ${retryCount + 1}:`, error);
+        
+        if (retryCount === maxRetries) {
+          notifications.show({
+            title: "Error",
+            message: "Failed to generate practice questions after multiple attempts. Please try again.",
+            color: "red",
+          });
+          break;
+        }
+        
+        retryCount++;
+        // Wait a short time before retrying
+        await new Promise(resolve => setTimeout(resolve, 1000));
       }
-
-      const questions = JSON.parse(result.content);
-      setPracticeQuestions(questions);
-      setUserInput("");
-      setPracticeStats({
-        total: questions.length,
-        correct: 0,
-        incorrect: 0,
-        streak: 0,
-      });
-    } catch (error) {
-      notifications.show({
-        title: "Error",
-        message:
-          error instanceof Error
-            ? error.message
-            : "Failed to generate practice questions",
-        color: "red",
-      });
-    } finally {
-      setIsLoading(false);
     }
+
+    setIsLoading(false);
   };
 
   const handleAnswerSubmit = (questionId: string, selectedAnswer: string) => {
