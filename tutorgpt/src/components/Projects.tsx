@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useAuth } from "../hooks/useAuth.ts";
 import { ErrorMessage } from "./ErrorMessage.tsx";
-import { LLMProvider } from "../services/llmService.ts";
+import { type LLMProvider } from "../services/llmService.ts";
 import { supabase } from "../lib/supabaseClient.ts";
 import ReactMarkdown from "react-markdown";
 import {
@@ -49,7 +49,7 @@ export const Projects: React.FC<ProjectsProps> = ({
   const [availableRoadmaps, setAvaialableRoadmaps] = useState<
     { label: String; value: String }[]
   >([]);
-  // const { session } = useAuth();
+  const { session } = useAuth();
   // const userId = session?.user?.id;
   const userId = getUserId();
 
@@ -84,11 +84,12 @@ export const Projects: React.FC<ProjectsProps> = ({
     if (!userId) return;
 
     try {
-      const { data: projectsData, error } = await supabase
-        .from("projects")
-        .select("*")
-        .eq("user_id", userId)
-        .order("created_at", { ascending: false });
+      const { data: projectsData, error } = await supabase;
+      console.log("TESTING...", projectsData, error);
+      // .from("projects")
+      // .select("*")
+      // .eq("user_id", userId)
+      // .order("created_at", { ascending: false });
 
       if (error) throw error;
       setProjects(projectsData || []);
@@ -100,6 +101,15 @@ export const Projects: React.FC<ProjectsProps> = ({
 
   const handleGenerateProjects = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // const d = await supabase
+    // // console.log(d);
+    //   .from("roadmaps")
+    //   .select("content")
+    //   .eq("id", roadmapId)
+    //   .single();
+
+    // console.log("TESTING PROJECT", d);
     if (!userId || isLoading) return;
     // if (!roadmapId && !topic.trim()) {
     if (!selectedRoadmapId && !topic.trim()) {
@@ -117,29 +127,35 @@ export const Projects: React.FC<ProjectsProps> = ({
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+            // Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+            Authorization: `Bearer ${session?.access_token}`,
           },
           body: JSON.stringify({
-            roadmapId: Number(selectedRoadmapId),
+            roadmapId: selectedRoadmapId,
             topic: topic.trim(),
-            provider,
+            model: provider,
           }),
         }
       );
 
       if (!response.ok) {
-        throw new Error("Failed to generate projects");
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to generate projects");
       }
 
-      const data = await response.json();
+      const { content } = await response.json();
+      console.log("DATA", content);
 
       // Save projects to database
       const { error: saveError } = await supabase.from("projects").insert(
-        data.projects.map((project: any) => ({
+        content.map((project: any) => ({
           user_id: userId,
-          // roadmap_id: roadmapId,
-          roadmap_id: selectedRoadmapId,
-          ...project,
+          roadmap_id: roadmapId,
+          title: project.title,
+          description: project.description,
+          implementation_plan: project.requirements,
+          difficulty: project.difficulty || "Intermediate",
+          status: "Not Started",
         }))
       );
 

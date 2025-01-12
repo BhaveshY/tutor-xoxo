@@ -5,8 +5,11 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 export type LLMProvider = 
   | 'openai/gpt-4-turbo-preview'
-  | 'groq/grok-2-1212'
-  | 'anthropic/claude-3-5-sonnet-20241022';
+  | 'anthropic/claude-3-opus'
+  | 'anthropic/claude-3-sonnet'
+  | 'google/gemini-pro'
+  | 'meta-llama/llama-2-70b-chat'
+  | 'mistral/mistral-medium';
 
 interface LLMResponse {
   content: any;
@@ -112,6 +115,6 @@ export const llmService = {
     } catch (error) {
       console.error('Error generating practice questions:', error);
       return { error: error instanceof Error ? error.message : 'An unknown error occurred', content: [] };
-    }
-  },
-}; 
+    }
+  },
+};
