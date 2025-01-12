@@ -19,13 +19,16 @@ interface Store {
   isLoading: boolean;
   emailConfirmationSent: boolean;
   progressDataStore: ProgressData[];
+  selectedRoadMapId: String
 
   updateProgressDataStore: (data: ProgressData[]) => void;
   updateProgressDataOrder: (data: ProgressData[]) => void;
 
   // User management
   setUser: (user: User | null) => void;
+  getUserId: () => String | undefined
   setCurrentMode: (mode: 'tutor' | 'roadmap' | 'practice' | 'progress' | 'projects') => void;
+
 
   // Roadmap management
   addRoadmap: (roadmap: Roadmap) => void;
@@ -33,6 +36,7 @@ interface Store {
   clearRoadmaps: () => void;
   updateProgress: (progress: RoadmapMetrics) => void;
   getProgress: (roadmapId: string) => RoadmapMetrics | undefined;
+  // setCurrentSelectedRoadMapId: (roadmapId: string) => void
 
   // Learning metrics
   updateTopicMetrics: (roadmapId: string, topicId: string, metrics: Partial<TopicMetrics>) => void;
@@ -57,11 +61,17 @@ const useStore = create<Store>()(
       isLoading: false,
       emailConfirmationSent: false,
       progressDataStore: [],
+      selectedRoadMapId: '',
 
       updateProgressDataStore: (data) => set({ progressDataStore: data }),
       updateProgressDataOrder: (data) => set({ progressDataStore: sortedOrder(data) }),
 
       setUser: (user) => set({ user }),
+      getUserId: () => {
+        const state = get();
+        return state.user?.id
+      },
+
       setCurrentMode: (mode) => set({ currentMode: mode }),
 
       addRoadmap: (roadmap) =>
@@ -69,7 +79,7 @@ const useStore = create<Store>()(
           const topics = roadmap.topics || parseRoadmapContent(roadmap.content);
           const progress = calculateProgress(topics);
           const newRoadmap = { ...roadmap, topics, progress };
-          
+
           const progressData: ProgressData = {
             id: roadmap.id,
             title: roadmap.title,
@@ -95,6 +105,8 @@ const useStore = create<Store>()(
           roadmaps: [],
           progress: [],
         })),
+
+      // setCurrentSelectedRoadMapId: (id) => set({ selectedRoadMapId: id }),
 
       updateProgress: (progress) =>
         set((state) => {

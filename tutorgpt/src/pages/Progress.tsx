@@ -83,8 +83,10 @@ export const parseRoadmapContent = (content: string): RoadmapTopic[] => {
       while (j < lines.length && !lines[j].startsWith('##')) {
         const subtopicLine = lines[j].trim();
         if (subtopicLine.startsWith('-') || subtopicLine.startsWith('*')) {
+
           const subtopicTitle = subtopicLine.replace(/^[-*]\s+/, '').trim();
           console.log('Adding subtopic:', subtopicTitle);
+          // if(subtopicTitle.)
           currentTopic.subtopics.push({
             id: `subtopic_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
             title: subtopicTitle,
