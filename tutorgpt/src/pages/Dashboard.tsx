@@ -1,32 +1,35 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { useAuth } from '../hooks/useAuth.ts';
-import useStore from '../store/useStore.ts';
-import { llmService, LLMProvider } from '../services/llmService.ts';
-import { databaseService, LearningRoadmap } from '../services/databaseService.ts';
-import { supabase } from '../lib/supabaseClient.ts';
-import { Projects } from '../components/Projects.tsx';
-import Progress from './Progress.tsx';
-import { LLMSelector } from '../components/LLMSelector.tsx';
-import { notifications } from '@mantine/notifications';
-import { 
-  ActionIcon, 
-  Badge, 
-  Box, 
-  Button, 
-  Container, 
-  Divider, 
-  Group as MantineGroup, 
-  Paper, 
-  Radio, 
-  Select, 
-  Stack, 
-  Text, 
-  Textarea, 
-  ThemeIcon, 
-  Title, 
-  Tooltip 
-} from '@mantine/core';
-import { 
+import React, { useEffect, useRef, useState } from "react";
+import { useAuth } from "../hooks/useAuth.ts";
+import useStore from "../store/useStore.ts";
+import { llmService, LLMProvider } from "../services/llmService.ts";
+import {
+  databaseService,
+  LearningRoadmap,
+} from "../services/databaseService.ts";
+import { supabase } from "../lib/supabaseClient.ts";
+import { Projects } from "../components/Projects.tsx";
+import Progress from "./Progress.tsx";
+import { LLMSelector } from "../components/LLMSelector.tsx";
+import { notifications } from "@mantine/notifications";
+import {
+  ActionIcon,
+  Badge,
+  Box,
+  Button,
+  Container,
+  Divider,
+  Group as MantineGroup,
+  Paper,
+  Radio,
+  Select,
+  Stack,
+  Text,
+  Textarea,
+  ThemeIcon,
+  Title,
+  Tooltip,
+} from "@mantine/core";
+import {
   IconArrowRight,
   IconBookmark,
   IconBrain,
@@ -37,11 +40,12 @@ import {
   IconMap,
   IconRefresh,
   IconSend,
-  IconX
-} from '@tabler/icons-react';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import { parseRoadmapContent, calculateProgress } from './Progress.tsx';
+  IconTrash,
+  IconX,
+} from "@tabler/icons-react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import { parseRoadmapContent, calculateProgress } from "./Progress.tsx";
 
 interface RoadmapTopic {
   id: string;
@@ -124,7 +128,7 @@ const Dashboard = () => {
     roadmaps,
     removeRoadmap,
     clearRoadmaps,
-    setCurrentMode
+    setCurrentMode,
   } = useStore();
   const [userInput, setUserInput] = useState("");
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
@@ -134,7 +138,9 @@ const Dashboard = () => {
   const [selectedRoadmap, setSelectedRoadmap] = useState<SavedRoadmap | null>(
     null
   );
-  const [practiceQuestions, setPracticeQuestions] = useState<PracticeQuestion[]>([]);
+  const [practiceQuestions, setPracticeQuestions] = useState<
+    PracticeQuestion[]
+  >([]);
   const [showExplanation, setShowExplanation] = useState<
     Record<string, boolean>
   >({});
@@ -145,8 +151,11 @@ const Dashboard = () => {
     incorrect: 0,
     streak: 0,
   });
-  const [selectedDifficulty, setSelectedDifficulty] = useState<string>('medium');
-  const [selectedModel, setSelectedModel] = useState<LLMProvider>('openai/gpt-4-turbo-preview');
+  const [selectedDifficulty, setSelectedDifficulty] =
+    useState<string>("medium");
+  const [selectedModel, setSelectedModel] = useState<LLMProvider>(
+    "openai/gpt-4-turbo-preview"
+  );
 
   // Load roadmaps when user logs in
   useEffect(() => {
@@ -157,9 +166,9 @@ const Dashboard = () => {
         clearRoadmaps();
         const roadmapsData = await databaseService.getRoadmaps(user.id);
         roadmapsData.forEach((roadmap) => {
-          console.log('Loading roadmap content:', roadmap.content);
+          console.log("Loading roadmap content:", roadmap.content);
           const topics = parseRoadmapContent(roadmap.content);
-          console.log('Parsed topics:', topics);
+          console.log("Parsed topics:", topics);
           addRoadmap({
             id: roadmap.id,
             title: roadmap.title,
@@ -350,7 +359,9 @@ const Dashboard = () => {
 
     while (retryCount <= maxRetries) {
       try {
-        console.log(`Attempt ${retryCount + 1} to generate practice questions...`);
+        console.log(
+          `Attempt ${retryCount + 1} to generate practice questions...`
+        );
         const result = await llmService.generatePracticeQuestions({
           prompt: userInput,
           difficulty: selectedDifficulty as "easy" | "medium" | "hard",
@@ -361,28 +372,39 @@ const Dashboard = () => {
           throw new Error(result.error);
         }
 
-        console.log('Raw result:', JSON.stringify(result, null, 2));
-        
+        console.log("Raw result:", JSON.stringify(result, null, 2));
+
         // Ensure we have a valid response
         if (!result.content) {
-          throw new Error('No content in response');
+          throw new Error("No content in response");
         }
 
         // Validate the questions array
         if (!Array.isArray(result.content)) {
-          console.error('Content is not an array:', result.content);
-          throw new Error('Invalid response format: content is not an array');
+          console.error("Content is not an array:", result.content);
+          throw new Error("Invalid response format: content is not an array");
         }
 
         if (result.content.length === 0) {
-          throw new Error('No questions returned');
+          throw new Error("No questions returned");
         }
 
         // Validate each question has required fields
         const questions = result.content.map((q: any, index: number) => {
-          if (!q.id || !q.question || !q.options || !q.correct || !q.explanation) {
-            console.error(`Invalid question format for question ${index + 1}:`, q);
-            throw new Error(`Invalid question format for question ${index + 1}`);
+          if (
+            !q.id ||
+            !q.question ||
+            !q.options ||
+            !q.correct ||
+            !q.explanation
+          ) {
+            console.error(
+              `Invalid question format for question ${index + 1}:`,
+              q
+            );
+            throw new Error(
+              `Invalid question format for question ${index + 1}`
+            );
           }
 
           // Ensure the question object has the correct structure
@@ -393,18 +415,18 @@ const Dashboard = () => {
               A: q.options.A,
               B: q.options.B,
               C: q.options.C,
-              D: q.options.D
+              D: q.options.D,
             },
             correct: q.correct,
             explanation: q.explanation,
             difficulty: q.difficulty || selectedDifficulty,
             selectedAnswer: undefined,
-            isCorrect: undefined
+            isCorrect: undefined,
           };
         });
 
-        console.log('Validated questions:', questions);
-        
+        console.log("Validated questions:", questions);
+
         setPracticeQuestions(questions);
         setUserInput("");
         setPracticeStats({
@@ -416,22 +438,22 @@ const Dashboard = () => {
 
         // If we get here, we've successfully processed the questions
         break;
-
       } catch (error) {
         console.error(`Error in attempt ${retryCount + 1}:`, error);
-        
+
         if (retryCount === maxRetries) {
           notifications.show({
             title: "Error",
-            message: "Failed to generate practice questions after multiple attempts. Please try again.",
+            message:
+              "Failed to generate practice questions after multiple attempts. Please try again.",
             color: "red",
           });
           break;
         }
-        
+
         retryCount++;
         // Wait a short time before retrying
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await new Promise((resolve) => setTimeout(resolve, 1000));
       }
     }
 
@@ -513,10 +535,10 @@ const Dashboard = () => {
       };
 
       const savedRoadmap = await databaseService.createRoadmap(newRoadmap);
-      
+
       // Parse the content into topics
       const topics = parseRoadmapContent(savedRoadmap.content);
-      console.log('Parsed topics for new roadmap:', topics);
+      console.log("Parsed topics for new roadmap:", topics);
 
       const roadmapWithTopics: SavedRoadmap = {
         id: savedRoadmap.id,
@@ -547,9 +569,12 @@ const Dashboard = () => {
 
   const handleRoadmapClick = (roadmap: RoadmapItem) => {
     // Parse the content into topics if not already parsed
-    const topics = roadmap.topics?.length > 0 ? roadmap.topics : parseRoadmapContent(roadmap.content);
-    console.log('Topics for clicked roadmap:', topics);
-    
+    const topics =
+      roadmap.topics?.length > 0
+        ? roadmap.topics
+        : parseRoadmapContent(roadmap.content);
+    console.log("Topics for clicked roadmap:", topics);
+
     const roadmapWithTopics: SavedRoadmap = {
       ...roadmap,
       topics: topics,
@@ -611,7 +636,12 @@ const Dashboard = () => {
                   </Paper>
                 ))}
               </Box>
-              <form onSubmit={(e) => { e.preventDefault(); handleSubmit(); }}>
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  handleSubmit();
+                }}
+              >
                 <Stack gap="sm">
                   <Textarea
                     value={userInput}
@@ -628,7 +658,7 @@ const Dashboard = () => {
                       onClick={handleSubmit}
                       loading={isLoading}
                       variant="gradient"
-                      gradient={{ from: 'blue', to: 'cyan' }}
+                      gradient={{ from: "blue", to: "cyan" }}
                     >
                       Send
                     </Button>
@@ -639,7 +669,7 @@ const Dashboard = () => {
           </Paper>
         </Stack>
 
-        <Stack style={{ flex: 1 }}>
+        {/* <Stack style={{ flex: 1 }}>
           <Paper p="md" withBorder>
             <Stack gap="md">
               <MantineGroup justify="space-between">
@@ -681,7 +711,7 @@ const Dashboard = () => {
               )}
             </Stack>
           </Paper>
-        </Stack>
+        </Stack> */}
       </MantineGroup>
     </Stack>
   );
@@ -737,10 +767,28 @@ const Dashboard = () => {
             <Paper p="md" withBorder>
               <Stack gap="md">
                 <MantineGroup justify="space-between">
-                  <Text size="lg" fw={500}>{selectedRoadmap.title}</Text>
-                  <Badge size="lg" variant="light">
-                    {selectedRoadmap.topics.length} Topics
-                  </Badge>
+                  <Text size="lg" fw={500}>
+                    {selectedRoadmap.title}
+                  </Text>
+                  <MantineGroup justify="space-between">
+                    <Badge size="lg" variant="light">
+                      {selectedRoadmap.topics.length} Topics
+                    </Badge>
+                    <ActionIcon
+                      variant="light"
+                      onClick={() => {
+                        setSelectedRoadmap(null);
+                        removeRoadmap(selectedRoadmap.id);
+                        notifications.show({
+                          title: "Success",
+                          message: "Roadmap deleted successfully",
+                          color: "green",
+                        });
+                      }}
+                    >
+                      <IconTrash size={20} />
+                    </ActionIcon>
+                  </MantineGroup>
                 </MantineGroup>
                 <Box className="markdown-content">
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>
@@ -1083,7 +1131,8 @@ const Dashboard = () => {
     <Stack>
       <Title order={2}>Project Suggestions</Title>
       <Text color="dimmed" mb="xl">
-        Get personalized project suggestions based on your learning roadmaps or specific topics.
+        Get personalized project suggestions based on your learning roadmaps or
+        specific topics.
       </Text>
       <Projects provider={selectedModel} />
     </Stack>
@@ -1091,11 +1140,11 @@ const Dashboard = () => {
 
   return (
     <Container size="xl" p="md">
-      {currentMode === 'tutor' && renderTutorMode()}
-      {currentMode === 'roadmap' && renderRoadmapMode()}
-      {currentMode === 'practice' && renderPracticeMode()}
-      {currentMode === 'progress' && renderProgressMode()}
-      {currentMode === 'projects' && renderProjectsMode()}
+      {currentMode === "tutor" && renderTutorMode()}
+      {currentMode === "roadmap" && renderRoadmapMode()}
+      {currentMode === "practice" && renderPracticeMode()}
+      {currentMode === "progress" && renderProgressMode()}
+      {currentMode === "projects" && renderProjectsMode()}
     </Container>
   );
 };
