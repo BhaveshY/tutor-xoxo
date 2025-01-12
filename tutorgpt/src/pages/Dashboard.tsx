@@ -513,14 +513,18 @@ const Dashboard = () => {
       };
 
       const savedRoadmap = await databaseService.createRoadmap(newRoadmap);
+      
+      // Parse the content into topics
+      const topics = parseRoadmapContent(savedRoadmap.content);
+      console.log('Parsed topics for new roadmap:', topics);
 
       const roadmapWithTopics: SavedRoadmap = {
         id: savedRoadmap.id,
         title: savedRoadmap.title,
         content: savedRoadmap.content,
         timestamp: new Date(savedRoadmap.created_at),
-        topics: [],
-        progress: 0,
+        topics: topics,
+        progress: calculateProgress(topics),
       };
 
       addRoadmap(roadmapWithTopics);
@@ -542,10 +546,14 @@ const Dashboard = () => {
   };
 
   const handleRoadmapClick = (roadmap: RoadmapItem) => {
+    // Parse the content into topics if not already parsed
+    const topics = roadmap.topics?.length > 0 ? roadmap.topics : parseRoadmapContent(roadmap.content);
+    console.log('Topics for clicked roadmap:', topics);
+    
     const roadmapWithTopics: SavedRoadmap = {
       ...roadmap,
-      topics: roadmap.topics || [],
-      progress: roadmap.progress || 0,
+      topics: topics,
+      progress: calculateProgress(topics),
     };
     setSelectedRoadmap(roadmapWithTopics);
   };

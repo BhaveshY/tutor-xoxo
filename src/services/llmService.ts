@@ -8,11 +8,9 @@ interface ChatMessage {
 
 export type LLMProvider = 
   | 'openai/gpt-4-turbo-preview'
-  | 'anthropic/claude-3-opus'
-  | 'anthropic/claude-3-sonnet'
-  | 'google/gemini-pro'
-  | 'meta-llama/llama-2-70b-chat'
-  | 'mistral/mistral-medium';
+  | 'groq/grok-2-1212'
+  | 'anthropic/claude-3-5-sonnet-20241022'
+  | 'openai/gpt-4o-mini';
 
 interface PracticeQuestion {
   id: string;
@@ -56,7 +54,7 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 export const llmService = {
-  generateTutorResponse: async (prompt: string, chatHistory: ChatMessage[] = [], provider: LLMProvider = 'openai/gpt-4-turbo-preview'): Promise<LLMResponse> => {
+  generateTutorResponse: async (prompt: string, chatHistory: ChatMessage[] = [], provider: LLMProvider = 'openai/gpt-4o-mini'): Promise<LLMResponse> => {
     try {
       const { data, error } = await supabase.functions.invoke<LLMResponse>('tutor', {
         body: { 
@@ -75,7 +73,7 @@ export const llmService = {
     }
   },
 
-  generateRoadmap: async (prompt: string, provider: LLMProvider = 'openai/gpt-4-turbo-preview'): Promise<LLMResponse> => {
+  generateRoadmap: async (prompt: string, provider: LLMProvider = 'openai/gpt-4o-mini'): Promise<LLMResponse> => {
     try {
       const { data, error } = await supabase.functions.invoke<LLMResponse>('roadmap', {
         body: { prompt, model: provider },
@@ -89,7 +87,7 @@ export const llmService = {
     }
   },
 
-  generateProjects: async (prompt: string, provider: LLMProvider = 'openai/gpt-4-turbo-preview'): Promise<LLMResponse> => {
+  generateProjects: async (prompt: string, provider: LLMProvider = 'openai/gpt-4o-mini'): Promise<LLMResponse> => {
     try {
       const { data, error } = await supabase.functions.invoke<LLMResponse>('projects', {
         body: { prompt, model: provider },
@@ -107,7 +105,7 @@ export const llmService = {
     return databaseService.getChatHistory(userId);
   },
 
-  generatePracticeQuestions: async ({ prompt, difficulty, provider = 'openai/gpt-4-turbo-preview' }: PracticeParams): Promise<PracticeResponse> => {
+  generatePracticeQuestions: async ({ prompt, difficulty, provider = 'openai/gpt-4o-mini' }: PracticeParams): Promise<PracticeResponse> => {
     try {
       console.log('Generating practice questions with params:', { prompt, difficulty, provider });
       

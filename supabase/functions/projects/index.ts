@@ -46,7 +46,7 @@ serve(async (req: Request) => {
   }
 
   try {
-    const { roadmapId, topic, model = 'openai/gpt-4-turbo-preview' } = await req.json() as RequestBody
+    const { roadmapId, topic, model = 'openai/gpt-4o-mini' } = await req.json() as RequestBody
 
     if (!roadmapId && !topic) {
       throw new Error('Either roadmapId or topic is required')
