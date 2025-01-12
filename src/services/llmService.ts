@@ -8,8 +8,11 @@ interface ChatMessage {
 
 export type LLMProvider = 
   | 'openai/gpt-4-turbo-preview'
-  | 'groq/grok-2-1212'
-  | 'anthropic/claude-3-5-sonnet-20241022';
+  | 'anthropic/claude-3-opus'
+  | 'anthropic/claude-3-sonnet'
+  | 'google/gemini-pro'
+  | 'meta-llama/llama-2-70b-chat'
+  | 'mistral/mistral-medium';
 
 interface PracticeQuestion {
   id: string;

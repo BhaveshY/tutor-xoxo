@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../hooks/useAuth.ts';
 import { ErrorMessage } from './ErrorMessage.tsx';
-import { LLMProvider } from '../services/llmService.ts';
+import { type LLMProvider } from '../services/llmService.ts';
 import { supabase } from '../lib/supabaseClient.ts';
 import ReactMarkdown from 'react-markdown';
 import { Paper, Text, TextInput, Button, Stack, Group, Badge, Box } from '@mantine/core';
@@ -69,29 +69,34 @@ export const Projects: React.FC<ProjectsProps> = ({ className, provider, roadmap
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          'Authorization': `Bearer ${session?.access_token}`,
         },
         body: JSON.stringify({
-          roadmapId,
+          roadmapId: roadmapId,
           topic: topic.trim(),
-          provider,
+          model: provider
         }),
       });
 
       if (!response.ok) {
-        throw new Error('Failed to generate projects');
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to generate projects');
       }
 
-      const data = await response.json();
+      const { content } = await response.json();
       
       // Save projects to database
       const { error: saveError } = await supabase
         .from('projects')
         .insert(
-          data.projects.map((project: any) => ({
+          content.map((project: any) => ({
             user_id: userId,
             roadmap_id: roadmapId,
-            ...project,
+            title: project.title,
+            description: project.description,
+            implementation_plan: project.requirements,
+            difficulty: project.difficulty || 'Intermediate',
+            status: 'Not Started'
           }))
         );
 
