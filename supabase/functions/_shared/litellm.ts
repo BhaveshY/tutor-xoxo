@@ -28,13 +28,18 @@ export class LiteLLMClient {
 
     // Initialize model configurations with provider-specific model names and providers
     this.modelConfigs = {
+      'gpt-4o-mini': {
+        api_key: apiKeys.OPENAI_API_KEY,
+        model: 'gpt-4o-mini',
+        provider: 'openai'
+      },
       'gpt-4-turbo-preview': {
         api_key: apiKeys.OPENAI_API_KEY,
         model: 'gpt-4-turbo-preview',
         provider: 'openai'
       },
       'grok-2-1212': {
-        api_key: apiKeys.XAI_API_KEY,
+        api_key: apiKeys.GROQ_API_KEY,
         model: 'grok-2-1212',
         provider: 'groq'
       },
@@ -42,11 +47,6 @@ export class LiteLLMClient {
         api_key: apiKeys.ANTHROPIC_API_KEY,
         model: 'claude-3-5-sonnet-20241022',
         provider: 'anthropic'
-      },
-      'gemini-pro': {
-        api_key: apiKeys.GOOGLE_API_KEY,
-        model: 'google/gemini-pro',
-        provider: 'google'
       }
     };
 

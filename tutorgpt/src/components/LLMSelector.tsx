@@ -8,6 +8,7 @@ interface LLMSelectorProps {
 }
 
 export const modelLabels: Record<LLMProvider, string> = {
+  'openai/gpt-4o-mini': 'GPT-4o Mini',
   'openai/gpt-4-turbo-preview': 'GPT-4 Turbo',
   'groq/grok-2-1212': 'Grok-2',
   'anthropic/claude-3-5-sonnet-20241022': 'Claude 3 Sonnet'

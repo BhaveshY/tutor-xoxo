@@ -1,10 +1,8 @@
 export type LLMModel = 
+  | 'openai/gpt-4o-mini'
   | 'openai/gpt-4-turbo-preview'
-  | 'anthropic/claude-3-opus'
-  | 'anthropic/claude-3-sonnet'
-  | 'google/gemini-pro'
-  | 'meta-llama/llama-2-70b-chat'
-  | 'mistral/mistral-medium';
+  | 'groq/grok-2-1212'
+  | 'anthropic/claude-3-5-sonnet-20241022';
 
 interface Message {
   role: 'system' | 'user' | 'assistant';

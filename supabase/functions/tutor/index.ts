@@ -13,7 +13,7 @@ serve(async (req: Request) => {
   }
 
   try {
-    const { prompt, model = 'openai/gpt-4-turbo-preview' } = await req.json() as RequestBody;
+    const { prompt, model = 'openai/gpt-4o-mini' } = await req.json() as RequestBody;
 
     if (!prompt) {
       throw new Error('Prompt is required');

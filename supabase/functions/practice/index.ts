@@ -107,7 +107,7 @@ serve(async (req) => {
   }
 
   try {
-    const { prompt, difficulty = 'medium', model = 'openrouter/anthropic/claude-3-sonnet' } = await req.json() as PracticeRequest;
+    const { prompt, difficulty = 'medium', model = 'openai/gpt-4o-mini' } = await req.json() as PracticeRequest;
     console.log('Received request:', { prompt, difficulty, model });
     
     const apiKey = Deno.env.get('OPENROUTER_API_KEY');

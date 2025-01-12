@@ -49,78 +49,58 @@ export const parseRoadmapContent = (content: string): RoadmapTopic[] => {
   console.log('Lines to parse:', lines);
   const topics: RoadmapTopic[] = [];
   let currentTopic: RoadmapTopic | null = null;
+  let isInRelevantSection = false;
+  let currentSection = '';
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     console.log('Processing line:', line);
 
-    // Check for topic headers (## Topic N: or ## Milestone: or just ##)
-    if (line.startsWith('##')) {
-      // If we have a current topic, save it before starting a new one
-      if (currentTopic) {
-        console.log('Saving current topic:', currentTopic);
-        topics.push(currentTopic);
-      }
+    // Check if we're entering a relevant section
+    if (line.includes("Practical Exercises") || line.includes("Key Concepts")) {
+      isInRelevantSection = true;
+      currentSection = line.includes("Practical Exercises") ? "Practical Exercises" : "Key Concepts";
+      continue; // Skip the section header itself
+    } else if (line.startsWith('##') && !line.includes("Practical Exercises") && !line.includes("Key Concepts")) {
+      isInRelevantSection = false;
+    }
 
-      // Extract the topic title
-      let title = line.replace(/^##\s+/, '').trim();
-      if (title.includes(':')) {
-        title = title.split(':')[1]?.trim() || title;
-      }
-      // Remove any "Topic N" or "Milestone" prefix
-      title = title.replace(/^(Topic \d+|Milestone):\s*/, '').trim();
-
-      console.log('Creating new topic:', title);
-      currentTopic = {
-        id: `topic_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        title,
-        subtopics: [],
-        completed: false,
-      };
-
-      // Look ahead for subtopics
-      let j = i + 1;
-      while (j < lines.length && !lines[j].startsWith('##')) {
-        const subtopicLine = lines[j].trim();
-        if (subtopicLine.startsWith('-') || subtopicLine.startsWith('*')) {
-
-          const subtopicTitle = subtopicLine.replace(/^[-*]\s+/, '').trim();
-          console.log('Adding subtopic:', subtopicTitle);
-          // if(subtopicTitle.)
-          currentTopic.subtopics.push({
-            id: `subtopic_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-            title: subtopicTitle,
-            completed: false,
-          });
+    // Only process lines when we're in a relevant section
+    if (isInRelevantSection) {
+      // Check for topic headers (lines starting with **)
+      if (line.startsWith('**') && line.endsWith('**')) {
+        // If we have a current topic, save it before starting a new one
+        if (currentTopic && currentTopic.subtopics.length > 0) {
+          console.log('Saving current topic:', currentTopic);
+          topics.push(currentTopic);
         }
-        j++;
+
+        // Extract the topic title
+        let title = line.replace(/^\*\*|\*\*$/g, '').trim();
+        
+        console.log('Creating new topic:', title);
+        currentTopic = {
+          id: `topic_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          title: `${title} (${currentSection})`,
+          subtopics: [],
+          completed: false,
+        };
+      } else if (currentTopic && (line.startsWith('-') || line.startsWith('*'))) {
+        const subtopicTitle = line.replace(/^[-*]\s+/, '').trim();
+        console.log('Adding subtopic:', subtopicTitle);
+        currentTopic.subtopics.push({
+          id: `subtopic_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          title: subtopicTitle,
+          completed: false,
+        });
       }
     }
   }
 
-  // Don't forget to add the last topic
-  if (currentTopic) {
+  // Don't forget to add the last topic if it has subtopics
+  if (currentTopic && currentTopic.subtopics.length > 0) {
     console.log('Saving final topic:', currentTopic);
     topics.push(currentTopic);
-  }
-
-  // If we didn't find any properly formatted topics but have content,
-  // create a single topic with the content as subtopics
-  if (topics.length === 0 && lines.length > 0) {
-    console.log('Creating single topic from unformatted content');
-    const mainTopic: RoadmapTopic = {
-      id: `topic_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      title: "Main Topic",
-      subtopics: lines
-        .filter(line => !line.startsWith('##'))
-        .map(line => ({
-          id: `subtopic_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-          title: line.replace(/^[-*]\s+/, '').trim(),
-          completed: false,
-        })),
-      completed: false,
-    };
-    topics.push(mainTopic);
   }
 
   console.log('Final parsed topics:', topics);
