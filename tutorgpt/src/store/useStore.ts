@@ -3,6 +3,18 @@ import { supabase } from '../lib/supabaseClient.ts';
 import { databaseService } from '../services/databaseService.ts';
 import { calculateProgress } from '../pages/Progress.tsx';
 
+// Initialize auth state
+supabase.auth.getSession().then(({ data: { session } }) => {
+  if (session?.user) {
+    useStore.getState().setUser(session.user);
+  }
+});
+
+// Listen for auth changes
+supabase.auth.onAuthStateChange((_event, session) => {
+  useStore.getState().setUser(session?.user ?? null);
+});
+
 interface User {
   id: string;
   email?: string;
