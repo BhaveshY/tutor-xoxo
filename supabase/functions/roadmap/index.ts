@@ -1,9 +1,9 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { corsHeaders } from '../_shared/cors.ts';
+import { callOpenRouter } from '../_shared/openrouter.ts';
 
 interface RoadmapRequest {
   prompt: string;
-  model: string;
 }
 
 serve(async (req: Request) => {
@@ -12,7 +12,7 @@ serve(async (req: Request) => {
   }
 
   try {
-    const { prompt, model = 'openai/gpt-4o-mini' } = await req.json() as RoadmapRequest;
+    const { prompt } = await req.json() as RoadmapRequest;
 
     const systemMessage = {
       role: 'system' as const,
@@ -65,63 +65,10 @@ Rules:
 
     const messages = [systemMessage, { role: 'user' as const, content: prompt }];
 
-    // Get the appropriate API key and base URL based on the provider
-    const [provider] = model.split('/');
-    let apiKey: string | undefined;
-    let apiBase: string;
-    let modelName: string;
-    
-    switch (provider) {
-      case 'openai':
-        apiKey = Deno.env.get('OPENAI_API_KEY');
-        apiBase = 'https://api.openai.com/v1';
-        modelName = 'gpt-4-1106-preview';
-        break;
-      case 'groq':
-        apiKey = Deno.env.get('GROQ_API_KEY');
-        apiBase = 'https://api.groq.com/openai/v1';
-        modelName = 'mixtral-8x7b-32768';
-        break;
-      case 'anthropic':
-        apiKey = Deno.env.get('ANTHROPIC_API_KEY');
-        apiBase = 'https://api.anthropic.com/v1';
-        modelName = 'claude-3-sonnet-20240229';
-        break;
-      default:
-        apiKey = Deno.env.get('OPENAI_API_KEY');
-        apiBase = 'https://api.openai.com/v1';
-        modelName = 'gpt-4-1106-preview';
-    }
+    const content = await callOpenRouter(messages);
 
-    if (!apiKey) {
-      throw new Error(`API key not found for provider ${provider}`);
-    }
-
-    // Make request to provider's API directly
-    const response = await fetch(`${apiBase}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-        ...(provider === 'anthropic' ? { 'anthropic-version': '2023-06-01' } : {})
-      },
-      body: JSON.stringify({
-        model: modelName,
-        messages,
-        temperature: 0.7,
-        max_tokens: 2000
-      })
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      console.error('API error response:', error);
-      throw new Error(error.message || `API error: ${response.statusText}`);
-    }
-
-    const result = await response.json();
     const aiResponse = {
-      content: result.choices[0].message.content
+      content: content
     };
 
     return new Response(JSON.stringify(aiResponse), {

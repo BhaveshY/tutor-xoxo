@@ -1,8 +1,4 @@
-export type LLMModel = 
-  | 'openai/gpt-4o-mini'
-  | 'openai/gpt-4-turbo-preview'
-  | 'groq/grok-2-1212'
-  | 'anthropic/claude-3-5-sonnet-20241022';
+export type LLMModel = 'deepseek/deepseek-r1';
 
 interface Message {
   role: 'system' | 'user' | 'assistant';
@@ -17,7 +13,7 @@ interface OpenRouterResponse {
   }>;
 }
 
-export async function callOpenRouter(messages: Message[], model: LLMModel): Promise<string> {
+export async function callOpenRouter(messages: Message[]): Promise<string> {
   const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -27,7 +23,7 @@ export async function callOpenRouter(messages: Message[], model: LLMModel): Prom
       'X-Title': 'TutorGPT'
     },
     body: JSON.stringify({
-      model,
+      model: 'deepseek/deepseek-r1',
       messages,
     })
   });

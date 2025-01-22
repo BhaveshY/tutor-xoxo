@@ -34,7 +34,6 @@ export interface LearningRoadmap {
   user_id: string;
   title: string;
   content: string;
-  provider?: string;
   created_at: string;
   updated_at: string;
 }
@@ -66,14 +65,19 @@ export const databaseService = {
 
   // Chat history operations
   getChatHistory: async (userId: string): Promise<ChatMessage[]> => {
-    const { data, error } = await supabase
-      .from('chat_history')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: true });
+    try {
+      const { data, error } = await supabase
+        .from('chat_history')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: true });
 
-    if (error) throw error;
-    return data || [];
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Error fetching chat history:', error);
+      throw error;
+    }
   },
 
   saveChatMessage: async (message: Omit<ChatMessage, 'id' | 'created_at'>): Promise<ChatMessage> => {
@@ -135,45 +139,69 @@ export const databaseService = {
 
   // Learning roadmap operations
   getRoadmaps: async (userId: string): Promise<LearningRoadmap[]> => {
-    const { data, error } = await supabase
-      .from('learning_roadmaps')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false });
+    try {
+      const { data, error } = await supabase
+        .from('roadmaps')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
 
-    if (error) throw error;
-    return data || [];
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Error fetching roadmaps:', error);
+      throw error;
+    }
   },
 
   createRoadmap: async (roadmap: Omit<LearningRoadmap, 'id' | 'created_at' | 'updated_at'>): Promise<LearningRoadmap> => {
-    const { data, error } = await supabase
-      .from('learning_roadmaps')
-      .insert(roadmap)
-      .select()
-      .single();
+    try {
+      const { data, error } = await supabase
+        .from('roadmaps')
+        .insert([roadmap])
+        .select()
+        .single();
 
-    if (error) throw error;
-    return data;
+      if (error) throw error;
+      if (!data) throw new Error('No data returned from insert');
+      
+      return data;
+    } catch (error) {
+      console.error('Error creating roadmap:', error);
+      throw error;
+    }
   },
 
-  updateRoadmap: async (roadmapId: string, updates: Partial<LearningRoadmap>): Promise<LearningRoadmap> => {
-    const { data, error } = await supabase
-      .from('learning_roadmaps')
-      .update(updates)
-      .eq('id', roadmapId)
-      .select()
-      .single();
+  updateRoadmap: async (id: string, updates: Partial<LearningRoadmap>): Promise<LearningRoadmap> => {
+    try {
+      const { data, error } = await supabase
+        .from('roadmaps')
+        .update(updates)
+        .eq('id', id)
+        .select()
+        .single();
 
-    if (error) throw error;
-    return data;
+      if (error) throw error;
+      if (!data) throw new Error('No data returned from update');
+      
+      return data;
+    } catch (error) {
+      console.error('Error updating roadmap:', error);
+      throw error;
+    }
   },
 
-  deleteRoadmap: async (roadmapId: string): Promise<void> => {
-    const { error } = await supabase
-      .from('learning_roadmaps')
-      .delete()
-      .eq('id', roadmapId);
+  deleteRoadmap: async (id: string): Promise<void> => {
+    try {
+      const { error } = await supabase
+        .from('roadmaps')
+        .delete()
+        .eq('id', id);
 
-    if (error) throw error;
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error deleting roadmap:', error);
+      throw error;
+    }
   }
 }; 

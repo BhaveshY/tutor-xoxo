@@ -1,10 +1,10 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { corsHeaders } from '../_shared/cors.ts'
+import { callOpenRouter } from '../_shared/openrouter.ts'
 
 interface PracticeRequest {
   prompt: string;
   difficulty?: 'easy' | 'medium' | 'hard';
-  model?: string;
 }
 
 interface Question {
@@ -20,6 +20,50 @@ interface Question {
   explanation: string;
   difficulty: string;
 }
+
+interface Message {
+  role: "user" | "assistant" | "system";
+  content: string;
+}
+
+const SYSTEM_PROMPT = `You are a multiple-choice question generator. Generate exactly 3 multiple choice questions about the given topic.
+
+IMPORTANT: Each question MUST have exactly 4 options (A, B, C, D) in the following format:
+
+Q1: [Question text]
+A) [First option]
+B) [Second option]
+C) [Third option]
+D) [Fourth option]
+Correct: [A/B/C/D]
+Explanation: [Brief explanation]
+
+CORRECT EXAMPLE:
+Q1: What is the capital of France?
+A) London
+B) Paris
+C) Berlin
+D) Madrid
+Correct: B
+Explanation: Paris is the capital and largest city of France.
+
+DO NOT use this format (this is WRONG):
+Q1: What is the capital of France?
+Answer: Paris
+Explanation: Paris is the capital of France.
+
+DO NOT use this format either (this is WRONG):
+Q1: What is the capital of France?
+The answer is Paris. It is the capital city of France.
+
+REQUIREMENTS:
+1. MUST include exactly 4 options labeled as A), B), C), D)
+2. MUST follow the exact format shown in the correct example
+3. MUST separate questions with a blank line
+4. MUST include "Correct: " followed by A, B, C, or D
+5. MUST include "Explanation: " followed by the explanation
+6. DO NOT use "Answer: " format
+7. DO NOT use free-form text answers`;
 
 function parseQuestions(text: string, difficulty: string): Question[] {
   console.log('Parsing questions from text:', text);
@@ -103,95 +147,92 @@ function parseQuestions(text: string, difficulty: string): Question[] {
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
+    return new Response('ok', { 
+      headers: {
+        ...corsHeaders,
+        'Content-Type': 'application/json',
+      },
+      status: 200,
+    });
   }
 
   try {
-    const { prompt, difficulty = 'medium', model = 'openai/gpt-4o-mini' } = await req.json() as PracticeRequest;
-    console.log('Received request:', { prompt, difficulty, model });
-    
-    const apiKey = Deno.env.get('OPENROUTER_API_KEY');
-    if (!apiKey) throw new Error('OpenRouter API key not found');
+    const { prompt, difficulty = 'medium' } = await req.json() as PracticeRequest;
 
-    const systemPrompt = `Generate exactly 3 ${difficulty} difficulty multiple choice questions about: ${prompt}.
-Each question must follow this EXACT format:
-
-Q1: [Question]
-A) [Option A]
-B) [Option B]
-C) [Option C]
-D) [Option D]
-Correct: [A/B/C/D]
-Explanation: [Explanation]
-
-Separate questions with a blank line. Start questions with Q1:, Q2:, Q3:.`;
-
-    console.log('Making API request with system prompt:', systemPrompt);
-
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-        'HTTP-Referer': 'https://tutorgptai.vercel.app',
-        'X-Title': 'TutorGPT'
-      },
-      body: JSON.stringify({
-        model: model,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: prompt }
-        ],
-        temperature: 0.5,
-        max_tokens: 4000
-      })
-    });
-
-    if (!response.ok) {
-      console.error('API error:', response.statusText);
-      throw new Error(`API error: ${response.statusText}`);
+    if (!prompt) {
+      return new Response(
+        JSON.stringify({ error: 'Prompt is required' }),
+        {
+          status: 400,
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
     }
 
-    const result = await response.json();
-    console.log('API response:', result);
-    
-    const content = result.choices[0].message.content;
-    console.log('Raw content:', content);
-    
-    // Parse questions into structured format
-    const questions = parseQuestions(content, difficulty);
-    console.log('Parsed questions:', questions);
+    console.log('Generating questions for prompt:', prompt);
 
-    // Take only first 3 questions
-    const finalQuestions = questions.slice(0, 3);
-    console.log('Final questions:', finalQuestions);
+    const messages: Message[] = [
+      { role: 'system', content: SYSTEM_PROMPT },
+      { role: 'user', content: `Generate 3 ${difficulty} difficulty multiple-choice questions about: ${prompt}. Remember to use A) B) C) D) format with exactly 4 options for each question. DO NOT use 'Answer:' format.` }
+    ];
 
-    // Create response object
-    const responseObj = { content: finalQuestions };
-    console.log('Response object:', responseObj);
+    const content = await callOpenRouter(messages);
+    console.log('Raw response:', content);
 
-    // Return structured response
+    // Split and validate questions
+    const questions = content.split('\n\n')
+      .filter(q => q.trim().startsWith('Q'));
+
+    if (questions.length === 0) {
+      throw new Error('No valid questions found in response');
+    }
+
+    const parsedQuestions = questions.map((q, index) => {
+      const lines = q.split('\n');
+      const questionText = lines[0].replace(/^Q\d+:\s*/, '').trim();
+      const options = {
+        A: lines[1].replace(/^A\)\s*/, '').trim(),
+        B: lines[2].replace(/^B\)\s*/, '').trim(),
+        C: lines[3].replace(/^C\)\s*/, '').trim(),
+        D: lines[4].replace(/^D\)\s*/, '').trim(),
+      };
+      const correct = lines[5].replace(/^Correct:\s*/, '').trim();
+      const explanation = lines[6].replace(/^Explanation:\s*/, '').trim();
+
+      return {
+        id: `q${index + 1}`,
+        question: questionText,
+        options,
+        correct,
+        explanation,
+        difficulty
+      };
+    });
+
     return new Response(
-      JSON.stringify(responseObj),
+      JSON.stringify({ 
+        content: parsedQuestions,
+        metadata: {
+          count: parsedQuestions.length,
+          difficulty
+        }
+      }),
       {
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'application/json',
-        },
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200,
       }
     );
-
   } catch (error) {
     console.error('Error:', error);
     return new Response(
-      JSON.stringify({ 
-        error: error instanceof Error ? error.message : 'An unknown error occurred',
-        content: [] 
-      }),
+      JSON.stringify({ error: error instanceof Error ? error.message : 'An unknown error occurred' }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 500,
       }
     );
   }
-}); 
+});

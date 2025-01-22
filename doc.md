@@ -1,16 +1,16 @@
- TutorXOXO is an AI-powered learning platform we're building that makes education more interactive and personalized. Let me break down the key components for you:
+TutorGPT is an AI-powered learning platform we're building that makes education more interactive and personalized. Let me break down the key components for you:
 
 1. **Project Architecture**:
    - We're using React with TypeScript for the frontend
    - Supabase for our backend and authentication
-   - Multiple AI models integrated through LiteLLM
+   - DeepSeek R1 through OpenRouter for AI capabilities
 
 2. **Key Features**:
    - AI Tutoring system
    - Practice question generation
    - Learning roadmaps
    - Progress tracking
-   - Multi-model AI support (GPT-4, Grok-2, Claude 3, and Gemini Pro)
+   - Powered by DeepSeek R1
 
 3. **Project Structure**:
    - `/src`: Our main React application code
@@ -24,7 +24,7 @@
 4. **Tech Stack**:
    - Frontend: React + TypeScript + Mantine UI (for beautiful, modern components)
    - Backend: Supabase (handles our database and authentication)
-   - AI Integration: LiteLLM (manages multiple AI model providers)
+   - AI Integration: OpenRouter with DeepSeek R1
 
 5. **Key Components You'll Work With**:
    - `LLMSelector.tsx`: Allows users to choose different AI models

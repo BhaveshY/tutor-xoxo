@@ -1,6 +1,13 @@
 import React, { useState } from "react";
 import { notifications } from "@mantine/notifications";
-import { llmService, LLMProvider } from "../services/llmService.ts";
+import { llmService } from "../services/llmService.ts";
+import { useStore } from "../../tutorgpt/src/store/useStore.ts";
+
+interface ChatMessage {
+  role: "user" | "assistant";
+  content: string;
+  timestamp: Date;
+}
 
 interface PracticeQuestion {
   id: string;
@@ -17,9 +24,17 @@ interface PracticeQuestion {
 }
 
 const Dashboard: React.FC = () => {
+  const {
+    currentMode,
+    user,
+    addRoadmap,
+    roadmaps,
+    removeRoadmap,
+    clearRoadmaps,
+    setCurrentMode
+  } = useStore();
   const [userInput, setUserInput] = useState("");
   const [selectedDifficulty, setSelectedDifficulty] = useState("easy");
-  const [selectedModel, setSelectedModel] = useState<LLMProvider>('openai/gpt-4-turbo-preview');
   const [practiceQuestions, setPracticeQuestions] = useState<PracticeQuestion[]>([]);
   const [practiceStats, setPracticeStats] = useState({
     total: 0,
@@ -28,6 +43,7 @@ const Dashboard: React.FC = () => {
     streak: 0,
   });
   const [isLoading, setIsLoading] = useState(false);
+  const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
 
   const handleStartPractice = async () => {
     if (!userInput.trim()) {
@@ -48,12 +64,10 @@ const Dashboard: React.FC = () => {
         console.log(`Attempt ${retryCount + 1} to generate practice questions...`);
         console.log('User input:', userInput);
         console.log('Selected difficulty:', selectedDifficulty);
-        console.log('Selected model:', selectedModel);
         
         const result = await llmService.generatePracticeQuestions({
           prompt: userInput,
           difficulty: selectedDifficulty as "easy" | "medium" | "hard",
-          provider: selectedModel,
         });
 
         console.log('Raw result from llmService:', result);

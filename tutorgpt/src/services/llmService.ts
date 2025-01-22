@@ -1,22 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-export type LLMProvider = 
-  | 'openai/gpt-4-turbo-preview'
-  | 'groq/grok-2-1212'
-  | 'anthropic/claude-3-5-sonnet-20241022';
-
-interface LLMResponse {
-  content: any;
-  error?: string;
-  metadata?: {
-    count?: number;
-    difficulty?: string;
-    provider?: string;
-  };
-}
+import { databaseService } from './databaseService.ts';
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -26,8 +9,16 @@ interface ChatMessage {
 type PracticeParams = {
   prompt: string;
   difficulty: 'easy' | 'medium' | 'hard';
-  provider?: LLMProvider;
 };
+
+interface LLMResponse {
+  content: any;
+  error?: string;
+  metadata?: {
+    count?: number;
+    difficulty?: string;
+  };
+}
 
 interface PracticeQuestion {
   id: string;
@@ -47,16 +38,18 @@ interface PracticeResponse extends LLMResponse {
   content: PracticeQuestion[];
 }
 
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 export const llmService = {
-  generateTutorResponse: async (prompt: string, chatHistory: ChatMessage[] = [], provider: LLMProvider = 'openai/gpt-4-turbo-preview'): Promise<LLMResponse> => {
+  generateTutorResponse: async (prompt: string, chatHistory: ChatMessage[] = []): Promise<LLMResponse> => {
     try {
       const { data, error } = await supabase.functions.invoke<LLMResponse>('tutor', {
         body: { 
           prompt,
           chatHistory,
-          model: provider,
           subject: prompt.match(/\[Subject: (.+?)\]/)?.[1] || 'General'
         },
       });
@@ -69,10 +62,10 @@ export const llmService = {
     }
   },
 
-  generateRoadmap: async (prompt: string, provider: LLMProvider = 'openai/gpt-4-turbo-preview'): Promise<LLMResponse> => {
+  generateRoadmap: async (prompt: string): Promise<LLMResponse> => {
     try {
       const { data, error } = await supabase.functions.invoke<LLMResponse>('roadmap', {
-        body: { prompt, model: provider },
+        body: { prompt },
       });
 
       if (error) throw error;
@@ -83,17 +76,16 @@ export const llmService = {
     }
   },
 
-  generatePracticeQuestions: async ({ prompt, difficulty, provider = 'openai/gpt-4-turbo-preview' }: PracticeParams): Promise<PracticeResponse> => {
+  generatePracticeQuestions: async ({ prompt, difficulty }: PracticeParams): Promise<PracticeResponse> => {
     try {
       const { data, error } = await supabase.functions.invoke<{ 
         content: PracticeQuestion[];
         metadata: {
           count: number;
           difficulty: string;
-          provider: string;
         };
       }>('practice', {
-        body: { prompt, difficulty, model: provider },
+        body: { prompt, difficulty },
       });
 
       if (error) throw error;
@@ -114,4 +106,8 @@ export const llmService = {
       return { error: error instanceof Error ? error.message : 'An unknown error occurred', content: [] };
     }
   },
+
+  getChatHistory: async (userId: string) => {
+    return databaseService.getChatHistory(userId);
+  }
 }; 

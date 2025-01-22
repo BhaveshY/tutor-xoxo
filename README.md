@@ -12,12 +12,7 @@ An AI-powered tutoring platform that uses multiple language models to provide pe
 
 ## Supported Models
 
-- GPT-4 Turbo (OpenAI)
-- Claude 3 Opus (Anthropic)
-- Claude 3 Sonnet (Anthropic)
-- Gemini Pro (Google)
-- Llama 2 70B (Meta)
-- Mistral Medium (Mistral)
+- DeepSeek R1 (DeepSeek)
 
 ## Setup
 

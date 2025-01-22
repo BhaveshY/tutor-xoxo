@@ -6,11 +6,7 @@ interface ChatMessage {
   content: string;
 }
 
-export type LLMProvider = 
-  | 'openai/gpt-4-turbo-preview'
-  | 'groq/grok-2-1212'
-  | 'anthropic/claude-3-5-sonnet-20241022'
-  | 'openai/gpt-4o-mini';
+export type LLMProvider = 'deepseek/deepseek-r1';
 
 interface PracticeQuestion {
   id: string;
@@ -54,7 +50,7 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 export const llmService = {
-  generateTutorResponse: async (prompt: string, chatHistory: ChatMessage[] = [], provider: LLMProvider = 'openai/gpt-4o-mini'): Promise<LLMResponse> => {
+  generateTutorResponse: async (prompt: string, chatHistory: ChatMessage[] = [], provider: LLMProvider = 'deepseek/deepseek-r1'): Promise<LLMResponse> => {
     try {
       const { data, error } = await supabase.functions.invoke<LLMResponse>('tutor', {
         body: { 
@@ -73,7 +69,7 @@ export const llmService = {
     }
   },
 
-  generateRoadmap: async (prompt: string, provider: LLMProvider = 'openai/gpt-4o-mini'): Promise<LLMResponse> => {
+  generateRoadmap: async (prompt: string, provider: LLMProvider = 'deepseek/deepseek-r1'): Promise<LLMResponse> => {
     try {
       const { data, error } = await supabase.functions.invoke<LLMResponse>('roadmap', {
         body: { prompt, model: provider },
@@ -87,7 +83,7 @@ export const llmService = {
     }
   },
 
-  generateProjects: async (prompt: string, provider: LLMProvider = 'openai/gpt-4o-mini'): Promise<LLMResponse> => {
+  generateProjects: async (prompt: string, provider: LLMProvider = 'deepseek/deepseek-r1'): Promise<LLMResponse> => {
     try {
       const { data, error } = await supabase.functions.invoke<LLMResponse>('projects', {
         body: { prompt, model: provider },
@@ -105,7 +101,7 @@ export const llmService = {
     return databaseService.getChatHistory(userId);
   },
 
-  generatePracticeQuestions: async ({ prompt, difficulty, provider = 'openai/gpt-4o-mini' }: PracticeParams): Promise<PracticeResponse> => {
+  generatePracticeQuestions: async ({ prompt, difficulty, provider = 'deepseek/deepseek-r1' }: PracticeParams): Promise<PracticeResponse> => {
     try {
       console.log('Generating practice questions with params:', { prompt, difficulty, provider });
       

@@ -46,7 +46,7 @@ serve(async (req: Request) => {
   }
 
   try {
-    const { roadmapId, topic, model = 'openai/gpt-4o-mini' } = await req.json() as RequestBody
+    const { roadmapId, topic, model } = await req.json() as RequestBody
 
     if (!roadmapId && !topic) {
       throw new Error('Either roadmapId or topic is required')
@@ -109,7 +109,7 @@ Make sure:
       }
     ]
 
-    const content = await callOpenRouter(messages, model)
+    const content = await callOpenRouter(messages)
     const cleanedContent = cleanJsonResponse(content);
 
     // Parse and validate the response

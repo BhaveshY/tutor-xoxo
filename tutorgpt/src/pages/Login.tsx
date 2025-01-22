@@ -12,7 +12,7 @@ import {
   Divider,
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import useStore from '../store/useStore.ts';
+import { useStore } from '../store/useStore.ts';
 
 const Login = () => {
   const navigate = useNavigate();

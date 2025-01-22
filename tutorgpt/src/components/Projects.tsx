@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../hooks/useAuth.ts';
 import { ErrorMessage } from './ErrorMessage.tsx';
-import { type LLMProvider } from '../services/llmService.ts';
 import { supabase } from '../lib/supabaseClient.ts';
 import ReactMarkdown from 'react-markdown';
 import { Paper, Text, TextInput, Button, Stack, Group, Badge, Box } from '@mantine/core';
@@ -17,11 +16,10 @@ interface Project {
 
 interface ProjectsProps {
   className?: string;
-  provider: LLMProvider;
   roadmapId?: string;
 }
 
-export const Projects: React.FC<ProjectsProps> = ({ className, provider, roadmapId }) => {
+export const Projects: React.FC<ProjectsProps> = ({ className, roadmapId }) => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [topic, setTopic] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -74,7 +72,6 @@ export const Projects: React.FC<ProjectsProps> = ({ className, provider, roadmap
         body: JSON.stringify({
           roadmapId: roadmapId,
           topic: topic.trim(),
-          model: provider
         }),
       });
 

@@ -3,7 +3,7 @@ TutorGPT - AI-Powered Learning Platform
 
 Project Overview
 ---------------
-TutorGPT is a multimodal React web application that serves as an AI-powered tutor, helping users learn through various interactive modes. The application uses OpenAI's GPT-4 for generating responses and Supabase for backend services.
+TutorGPT is a multimodal React web application that serves as an AI-powered tutor, helping users learn through various interactive modes. The application uses DeepSeek R1 through OpenRouter for generating responses and Supabase for backend services.
 
 Tech Stack
 ----------
@@ -19,7 +19,7 @@ Frontend:
 Backend:
 - Supabase for authentication and database
 - Supabase Edge Functions for serverless computing
-- OpenAI GPT-4, Claude 3.5 API for AI responses
+- OpenRouter with DeepSeek R1 for AI responses
 
 Key Features
 -----------

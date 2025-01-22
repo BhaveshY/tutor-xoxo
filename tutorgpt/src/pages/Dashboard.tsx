@@ -1,12 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../hooks/useAuth.ts';
-import useStore from '../store/useStore.ts';
-import { llmService, LLMProvider } from '../services/llmService.ts';
+import { useStore } from '../store/useStore.ts';
+import { llmService } from '../services/llmService.ts';
 import { databaseService, LearningRoadmap } from '../services/databaseService.ts';
 import { supabase } from '../lib/supabaseClient.ts';
 import { Projects } from '../components/Projects.tsx';
 import Progress from './Progress.tsx';
-import { LLMSelector } from '../components/LLMSelector.tsx';
 import { notifications } from '@mantine/notifications';
 import { 
   ActionIcon, 
@@ -24,7 +23,9 @@ import {
   Textarea, 
   ThemeIcon, 
   Title, 
-  Tooltip 
+  Tooltip,
+  TextInput,
+  Loader
 } from '@mantine/core';
 import { 
   IconArrowRight,
@@ -89,9 +90,9 @@ interface SavedRoadmap {
   id: string;
   title: string;
   content: string;
-  timestamp: Date;
   topics: RoadmapTopic[];
   progress: number;
+  timestamp: Date;
 }
 
 interface PracticeStats {
@@ -102,19 +103,6 @@ interface PracticeStats {
 }
 
 type RoadmapItem = SavedRoadmap;
-
-const getModelLabel = (model: LLMProvider): string => {
-  switch (model) {
-    case "openai/gpt-4-turbo-preview":
-      return "GPT-4 Turbo";
-    case "groq/grok-2-1212":
-      return "Grok-2";
-    case "anthropic/claude-3-5-sonnet-20241022":
-      return "Claude 3 Sonnet";
-    default:
-      return "Unknown Model";
-  }
-};
 
 const Dashboard = () => {
   const {
@@ -146,7 +134,9 @@ const Dashboard = () => {
     streak: 0,
   });
   const [selectedDifficulty, setSelectedDifficulty] = useState<string>('medium');
-  const [selectedModel, setSelectedModel] = useState<LLMProvider>('openai/gpt-4-turbo-preview');
+  const [topic, setTopic] = useState('');
+  const { session } = useAuth();
+  const userId = session?.user?.id;
 
   // Load roadmaps when user logs in
   useEffect(() => {
@@ -222,8 +212,7 @@ const Dashboard = () => {
       // Get AI response with chat history
       const result = await llmService.generateTutorResponse(
         `[Subject: ${selectedSubject || "General"}] ${userInput}`,
-        chatHistory.map((msg) => ({ role: msg.role, content: msg.content })),
-        selectedModel
+        chatHistory.map((msg) => ({ role: msg.role, content: msg.content }))
       );
 
       if (result.error) {
@@ -300,7 +289,7 @@ const Dashboard = () => {
 
     setIsLoading(true);
     try {
-      const result = await llmService.generateRoadmap(userInput, selectedModel);
+      const result = await llmService.generateRoadmap(userInput);
       if (result.error) {
         throw new Error(result.error);
       }
@@ -335,7 +324,7 @@ const Dashboard = () => {
   };
 
   const handleStartPractice = async () => {
-    if (!userInput.trim()) {
+    if (!topic.trim()) {
       notifications.show({
         title: "Error",
         message: "Please enter a topic for practice",
@@ -352,9 +341,8 @@ const Dashboard = () => {
       try {
         console.log(`Attempt ${retryCount + 1} to generate practice questions...`);
         const result = await llmService.generatePracticeQuestions({
-          prompt: userInput,
-          difficulty: selectedDifficulty as "easy" | "medium" | "hard",
-          provider: selectedModel,
+          prompt: topic,
+          difficulty: selectedDifficulty as "easy" | "medium" | "hard"
         });
 
         if (result.error) {
@@ -464,11 +452,10 @@ const Dashboard = () => {
     setShowExplanation((prev) => ({ ...prev, [questionId]: true }));
   };
 
-  const handleModelChange = (model: LLMProvider) => {
-    setSelectedModel(model);
+  const handleModelChange = (model: string) => {
     notifications.show({
       title: "Model Changed",
-      message: `Switched to ${getModelLabel(model)}`,
+      message: `Switched to ${model}`,
       color: "blue",
     });
   };
@@ -509,7 +496,6 @@ const Dashboard = () => {
         user_id: user.id,
         title: `Learning Roadmap - ${selectedSubject}`,
         content: chatHistory[chatHistory.length - 1].content,
-        provider: selectedModel,
       };
 
       const savedRoadmap = await databaseService.createRoadmap(newRoadmap);
@@ -556,6 +542,37 @@ const Dashboard = () => {
       progress: calculateProgress(topics),
     };
     setSelectedRoadmap(roadmapWithTopics);
+  };
+
+  const handleGenerateQuestions = async () => {
+    if (!topic.trim()) return;
+    
+    setIsLoading(true);
+    try {
+      const response = await llmService.generatePracticeQuestions({
+        prompt: topic,
+        difficulty: 'medium'
+      });
+      
+      if (response.error) {
+        throw new Error(response.error);
+      }
+      
+      notifications.show({
+        title: "Questions Generated",
+        message: "Practice questions have been generated successfully."
+      });
+      
+      setTopic('');
+    } catch (error) {
+      console.error('Error generating questions:', error);
+      notifications.show({
+        title: "Error",
+        message: error instanceof Error ? error.message : "Failed to generate questions"
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const renderTutorMode = () => (
@@ -926,24 +943,28 @@ const Dashboard = () => {
       <Paper p="md" withBorder>
         <Stack gap="md">
           <Text fw={500}>Generate Practice Questions</Text>
-          <Textarea
-            value={userInput}
-            onChange={(e) => setUserInput(e.currentTarget.value)}
-            placeholder="Enter the topic you want to practice..."
-            minRows={3}
-            disabled={isLoading}
-          />
-          <MantineGroup justify="flex-end">
-            <Button
-              leftSection={<IconListCheck size={20} />}
-              onClick={handleStartPractice}
-              loading={isLoading}
-              variant="gradient"
-              gradient={{ from: "blue", to: "cyan" }}
-            >
-              Generate Questions
-            </Button>
-          </MantineGroup>
+          <form onSubmit={(e) => {
+            e.preventDefault();
+            handleGenerateQuestions();
+          }}>
+            <Stack gap="md">
+              <TextInput
+                label="Topic"
+                value={topic}
+                onChange={(e) => setTopic(e.currentTarget.value)}
+                placeholder="Enter a topic to generate practice questions..."
+                disabled={isLoading}
+              />
+              <Button
+                type="submit"
+                loading={isLoading}
+                disabled={!topic.trim()}
+                fullWidth
+              >
+                Generate Questions
+              </Button>
+            </Stack>
+          </form>
         </Stack>
       </Paper>
 
@@ -1085,7 +1106,7 @@ const Dashboard = () => {
       <Text color="dimmed" mb="xl">
         Get personalized project suggestions based on your learning roadmaps or specific topics.
       </Text>
-      <Projects provider={selectedModel} />
+      <Projects />
     </Stack>
   );
 

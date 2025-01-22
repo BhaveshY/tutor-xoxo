@@ -1,10 +1,11 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders } from "../_shared/cors.ts";
-import { LLMModel, callOpenRouter } from "../_shared/openrouter.ts";
+import { callOpenRouter } from "../_shared/openrouter.ts";
 
 interface RequestBody {
   prompt: string;
-  model: LLMModel;
+  chatHistory: Array<{ role: 'user' | 'assistant'; content: string }>;
+  subject?: string;
 }
 
 serve(async (req: Request) => {
@@ -13,7 +14,7 @@ serve(async (req: Request) => {
   }
 
   try {
-    const { prompt, model = 'openai/gpt-4o-mini' } = await req.json() as RequestBody;
+    const { prompt, chatHistory = [], subject = 'General' } = await req.json() as RequestBody;
 
     if (!prompt) {
       throw new Error('Prompt is required');
@@ -26,11 +27,11 @@ serve(async (req: Request) => {
       },
       {
         role: 'user' as const,
-        content: prompt
+        content: `[Subject: ${subject}] ${prompt}`
       }
     ];
 
-    const content = await callOpenRouter(messages, model);
+    const content = await callOpenRouter(messages);
 
     return new Response(
       JSON.stringify({ content }),
