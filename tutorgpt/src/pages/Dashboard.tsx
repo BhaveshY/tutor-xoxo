@@ -25,7 +25,9 @@ import {
   Title, 
   Tooltip,
   TextInput,
-  Loader
+  Loader,
+  Progress as MantineProgress,
+  Checkbox,
 } from '@mantine/core';
 import { 
   IconArrowRight,
@@ -133,7 +135,7 @@ const Dashboard = () => {
     incorrect: 0,
     streak: 0,
   });
-  const [selectedDifficulty, setSelectedDifficulty] = useState<string>('medium');
+  const [selectedDifficulty, setSelectedDifficulty] = useState<'easy' | 'medium' | 'hard'>('medium');
   const [topic, setTopic] = useState('');
   const { session } = useAuth();
   const userId = session?.user?.id;
@@ -551,16 +553,29 @@ const Dashboard = () => {
     try {
       const response = await llmService.generatePracticeQuestions({
         prompt: topic,
-        difficulty: 'medium'
+        difficulty: selectedDifficulty
       });
       
       if (response.error) {
         throw new Error(response.error);
       }
+
+      // Parse the response content if it's a string
+      const questions = typeof response.content === 'string' 
+        ? JSON.parse(response.content).content 
+        : response.content;
+
+      // Update practice questions state
+      setPracticeQuestions(questions.map((q: any) => ({
+        ...q,
+        selectedAnswer: undefined,
+        isCorrect: undefined
+      })));
       
       notifications.show({
         title: "Questions Generated",
-        message: "Practice questions have been generated successfully."
+        message: "Practice questions have been generated successfully.",
+        color: "green"
       });
       
       setTopic('');
@@ -568,10 +583,18 @@ const Dashboard = () => {
       console.error('Error generating questions:', error);
       notifications.show({
         title: "Error",
-        message: error instanceof Error ? error.message : "Failed to generate questions"
+        message: error instanceof Error ? error.message : "Failed to generate questions",
+        color: "red"
       });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleDifficultyChange = (value: string | null) => {
+    if (value === 'easy' || value === 'medium' || value === 'hard') {
+      setSelectedDifficulty(value);
+      setPracticeQuestions([]);
     }
   };
 
@@ -862,238 +885,158 @@ const Dashboard = () => {
   );
 
   const renderPracticeMode = () => (
-    <Stack gap="lg">
-      <MantineGroup justify="space-between" align="center">
-        <Title order={2}>Practice Questions</Title>
-        <MantineGroup>
-          <Select
-            placeholder="Select subject"
-            data={subjects}
-            value={selectedSubject}
-            onChange={setSelectedSubject}
-            clearable
-            style={{ width: 200 }}
-          />
-          <Select
-            placeholder="Difficulty"
-            data={[
-              { value: "easy", label: "Easy" },
-              { value: "medium", label: "Medium" },
-              { value: "hard", label: "Hard" },
-            ]}
-            value={selectedDifficulty}
-            onChange={(value) => setSelectedDifficulty(value || "medium")}
-            style={{ width: 120 }}
-          />
-        </MantineGroup>
-      </MantineGroup>
-
-      {practiceStats.total > 0 && (
-        <Paper p="md" withBorder>
-          <MantineGroup justify="space-between">
-            <MantineGroup>
-              <ThemeIcon color="blue" size="lg" variant="light">
-                <IconBrain size={20} />
-              </ThemeIcon>
-              <div>
-                <Text size="sm" c="dimmed">
-                  Total Questions
-                </Text>
-                <Text fw={500}>{practiceStats.total}</Text>
-              </div>
-            </MantineGroup>
-            <MantineGroup>
-              <ThemeIcon color="green" size="lg" variant="light">
-                <IconCheck size={20} />
-              </ThemeIcon>
-              <div>
-                <Text size="sm" c="dimmed">
-                  Correct
-                </Text>
-                <Text fw={500}>{practiceStats.correct}</Text>
-              </div>
-            </MantineGroup>
-            <MantineGroup>
-              <ThemeIcon color="red" size="lg" variant="light">
-                <IconX size={20} />
-              </ThemeIcon>
-              <div>
-                <Text size="sm" c="dimmed">
-                  Incorrect
-                </Text>
-                <Text fw={500}>{practiceStats.incorrect}</Text>
-              </div>
-            </MantineGroup>
-            <MantineGroup>
-              <ThemeIcon color="yellow" size="lg" variant="light">
-                <IconArrowRight size={20} />
-              </ThemeIcon>
-              <div>
-                <Text size="sm" c="dimmed">
-                  Current Streak
-                </Text>
-                <Text fw={500}>{practiceStats.streak}</Text>
-              </div>
-            </MantineGroup>
-            <Text size="sm" c="dimmed">
-              Accuracy:{" "}
-              {practiceStats.total > 0
-                ? Math.round(
-                    (practiceStats.correct / practiceStats.total) * 100
-                  )
-                : 0}
-              %
-            </Text>
-          </MantineGroup>
-        </Paper>
-      )}
-
+    <Stack>
       <Paper p="md" withBorder>
-        <Stack gap="md">
-          <Text fw={500}>Generate Practice Questions</Text>
-          <form onSubmit={(e) => {
-            e.preventDefault();
-            handleGenerateQuestions();
-          }}>
-            <Stack gap="md">
-              <TextInput
-                label="Topic"
-                value={topic}
-                onChange={(e) => setTopic(e.currentTarget.value)}
-                placeholder="Enter a topic to generate practice questions..."
-                disabled={isLoading}
-              />
-              <Button
-                type="submit"
-                loading={isLoading}
-                disabled={!topic.trim()}
-                fullWidth
-              >
-                Generate Questions
-              </Button>
-            </Stack>
-          </form>
-        </Stack>
+        <form onSubmit={(e) => { e.preventDefault(); handleGenerateQuestions(); }}>
+          <Stack gap="md">
+            <TextInput
+              label="Topic"
+              value={topic}
+              onChange={(e) => setTopic(e.currentTarget.value)}
+              placeholder="Enter a topic to generate practice questions..."
+              disabled={isLoading}
+            />
+            <Select
+              label="Difficulty"
+              data={[
+                { value: 'easy', label: 'Easy' },
+                { value: 'medium', label: 'Medium' },
+                { value: 'hard', label: 'Hard' },
+              ]}
+              value={selectedDifficulty}
+              onChange={handleDifficultyChange}
+              style={{ width: 120 }}
+            />
+            <Button
+              type="submit"
+              loading={isLoading}
+              disabled={!topic.trim()}
+              fullWidth
+            >
+              Generate Questions
+            </Button>
+          </Stack>
+        </form>
       </Paper>
 
       {practiceQuestions.length > 0 && (
-        <Stack gap="md">
-          {practiceQuestions.map((question, index) => (
-            <Paper
-              key={question.id}
-              p="md"
-              withBorder
-              shadow={question.selectedAnswer ? "sm" : "md"}
-              style={{
-                transition: "all 0.3s ease",
-                transform: question.selectedAnswer ? "scale(0.99)" : "scale(1)",
-              }}
-            >
-              <Stack gap="sm">
-                <MantineGroup justify="space-between">
+        <Paper p="md" withBorder>
+          <Stack gap="lg">
+            <MantineGroup justify="space-between">
+              <Text size="lg" fw={500}>Practice Questions</Text>
+              <MantineGroup>
+                <Badge color="blue">
+                  {practiceStats.correct} Correct
+                </Badge>
+                <Badge color="red">
+                  {practiceStats.incorrect} Incorrect
+                </Badge>
+                <Badge color="yellow">
+                  Streak: {practiceStats.streak}
+                </Badge>
+              </MantineGroup>
+            </MantineGroup>
+
+            {practiceQuestions.map((question, index) => (
+              <Paper key={question.id} p="md" withBorder>
+                <Stack gap="md">
                   <MantineGroup>
-                    <ThemeIcon
-                      color={
-                        question.isCorrect === undefined
-                          ? "blue"
-                          : question.isCorrect
-                          ? "green"
-                          : "red"
-                      }
-                      variant="light"
-                      size="lg"
-                      style={{ transition: "all 0.3s ease" }}
-                    >
-                      {question.isCorrect === undefined ? (
-                        <IconArrowRight size={20} />
-                      ) : question.isCorrect ? (
-                        <IconCheck size={20} />
-                      ) : (
-                        <IconX size={20} />
-                      )}
-                    </ThemeIcon>
-                    <Text fw={500}>Question {index + 1}</Text>
+                    <Badge>Question {index + 1}</Badge>
+                    {question.isCorrect !== undefined && (
+                      <Badge color={question.isCorrect ? 'green' : 'red'}>
+                        {question.isCorrect ? 'Correct' : 'Incorrect'}
+                      </Badge>
+                    )}
                   </MantineGroup>
-                  <Badge
-                    color={
-                      question.difficulty === "easy"
-                        ? "green"
-                        : question.difficulty === "medium"
-                        ? "yellow"
-                        : "red"
-                    }
-                  >
-                    {question.difficulty}
-                  </Badge>
-                </MantineGroup>
 
-                <Text size="lg">{question.question}</Text>
+                  <Text fw={500}>{question.question}</Text>
 
-                <Radio.Group
-                  value={question.selectedAnswer || ""}
-                  onChange={(value: string) =>
-                    handleAnswerSubmit(question.id, value)
-                  }
-                >
                   <Stack gap="xs">
                     {Object.entries(question.options).map(([key, value]) => (
-                      <Radio
+                      <Button
                         key={key}
-                        value={key}
-                        label={`${key}) ${value}`}
-                        disabled={question.selectedAnswer !== undefined}
+                        variant={
+                          question.selectedAnswer === key
+                            ? question.isCorrect !== undefined
+                              ? question.isCorrect
+                                ? 'filled'
+                                : 'filled'
+                              : 'filled'
+                            : 'light'
+                        }
                         color={
                           question.selectedAnswer === key
-                            ? question.isCorrect
-                              ? "green"
-                              : "red"
-                            : question.selectedAnswer !== undefined &&
-                              key === question.correct
-                            ? "green"
-                            : undefined
+                            ? question.isCorrect !== undefined
+                              ? question.isCorrect
+                                ? 'green'
+                                : 'red'
+                              : 'blue'
+                            : 'gray'
                         }
+                        onClick={() => {
+                          if (question.isCorrect !== undefined) return; // Prevent changing answer after submission
+                          const updatedQuestions = practiceQuestions.map(q =>
+                            q.id === question.id
+                              ? { ...q, selectedAnswer: key }
+                              : q
+                          );
+                          setPracticeQuestions(updatedQuestions);
+                        }}
+                        fullWidth
+                        justify="start"
                         styles={{
-                          radio: {
-                            transition: "all 0.3s ease",
-                            transform:
-                              question.selectedAnswer === key
-                                ? "scale(1.05)"
-                                : "scale(1)",
+                          inner: {
+                            justifyContent: 'flex-start',
                           },
                         }}
-                      />
+                      >
+                        <MantineGroup gap="md">
+                          <Text fw={500}>{key}.</Text>
+                          <Text>{value}</Text>
+                        </MantineGroup>
+                      </Button>
                     ))}
                   </Stack>
-                </Radio.Group>
 
-                {showExplanation[question.id] && (
-                  <Paper
-                    p="sm"
-                    bg="gray.0"
-                    style={{
-                      animation: "fadeIn 0.5s ease-in-out",
-                    }}
-                  >
-                    <Stack gap="xs">
-                      <Text
-                        size="sm"
-                        fw={500}
-                        c={question.isCorrect ? "green" : "red"}
-                      >
-                        {question.isCorrect ? "✨ Correct!" : "❌ Incorrect"}
-                      </Text>
+                  {question.selectedAnswer && question.isCorrect !== undefined && (
+                    <Paper p="sm" bg={question.isCorrect ? 'green.1' : 'red.1'}>
+                      <Stack gap="xs">
+                        <Text fw={500}>
+                          {question.isCorrect ? 'Correct!' : 'Incorrect'}
+                        </Text>
+                        <Text size="sm">{question.explanation}</Text>
+                      </Stack>
+                    </Paper>
+                  )}
 
-                      <Text size="sm" fw={500}>
-                        Explanation:
-                      </Text>
-                      <Text size="sm">{question.explanation}</Text>
-                    </Stack>
-                  </Paper>
-                )}
-              </Stack>
-            </Paper>
-          ))}
-        </Stack>
+                  {question.selectedAnswer && question.isCorrect === undefined && (
+                    <Button
+                      onClick={() => {
+                        const isCorrect = question.selectedAnswer === question.correct;
+                        const updatedQuestions = practiceQuestions.map(q =>
+                          q.id === question.id
+                            ? { ...q, isCorrect }
+                            : q
+                        );
+                        setPracticeQuestions(updatedQuestions);
+
+                        // Update practice stats
+                        setPracticeStats(prev => ({
+                          total: prev.total + 1,
+                          correct: prev.correct + (isCorrect ? 1 : 0),
+                          incorrect: prev.incorrect + (isCorrect ? 0 : 1),
+                          streak: isCorrect ? prev.streak + 1 : 0,
+                        }));
+                      }}
+                    >
+                      Check Answer
+                    </Button>
+                  )}
+                </Stack>
+              </Paper>
+            ))}
+          </Stack>
+        </Paper>
       )}
     </Stack>
   );
