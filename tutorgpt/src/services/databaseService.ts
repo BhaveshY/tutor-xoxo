@@ -146,10 +146,14 @@ export const databaseService = {
         .eq('user_id', userId)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching roadmaps:', error);
+        throw error;
+      }
+
       return data || [];
     } catch (error) {
-      console.error('Error fetching roadmaps:', error);
+      console.error('Error in getRoadmaps:', error);
       throw error;
     }
   },
@@ -162,12 +166,14 @@ export const databaseService = {
         .select()
         .single();
 
-      if (error) throw error;
-      if (!data) throw new Error('No data returned from insert');
-      
+      if (error) {
+        console.error('Error creating roadmap:', error);
+        throw error;
+      }
+
       return data;
     } catch (error) {
-      console.error('Error creating roadmap:', error);
+      console.error('Error in createRoadmap:', error);
       throw error;
     }
   },
@@ -181,12 +187,14 @@ export const databaseService = {
         .select()
         .single();
 
-      if (error) throw error;
-      if (!data) throw new Error('No data returned from update');
-      
+      if (error) {
+        console.error('Error updating roadmap:', error);
+        throw error;
+      }
+
       return data;
     } catch (error) {
-      console.error('Error updating roadmap:', error);
+      console.error('Error in updateRoadmap:', error);
       throw error;
     }
   },
@@ -198,9 +206,12 @@ export const databaseService = {
         .delete()
         .eq('id', id);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error deleting roadmap:', error);
+        throw error;
+      }
     } catch (error) {
-      console.error('Error deleting roadmap:', error);
+      console.error('Error in deleteRoadmap:', error);
       throw error;
     }
   }

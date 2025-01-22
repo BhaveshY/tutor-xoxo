@@ -628,6 +628,14 @@ const Dashboard = () => {
                   </Paper>
                 ))}
               </Box>
+              {isLoading && (
+                <Paper p="md" bg="blue.0">
+                  <MantineGroup align="center" gap="sm">
+                    <Loader size="sm" />
+                    <Text size="sm">The tutor is thinking...</Text>
+                  </MantineGroup>
+                </Paper>
+              )}
               <form onSubmit={(e) => { e.preventDefault(); handleSubmit(); }}>
                 <Stack gap="sm">
                   <Textarea

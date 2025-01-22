@@ -1,10 +1,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import { OpenAI } from 'https://esm.sh/openai@4.28.0';
-import { corsHeaders } from '../_shared/cors.ts';
+import { createOpenAIClient, MODEL, corsHeaders } from '../_shared/openrouter.ts';
 
-const openai = new OpenAI({
-  apiKey: Deno.env.get('OPENAI_API_KEY'),
-});
+const openai = createOpenAIClient();
 
 const SYSTEM_PROMPT = `You are a multiple-choice question generator. Generate exactly 3 multiple choice questions about the given topic.
 
@@ -123,7 +120,7 @@ serve(async (req) => {
     console.log('Generating questions for prompt:', prompt);
 
     const completion = await openai.chat.completions.create({
-      model: 'gpt-4',
+      model: MODEL,
       messages: [
         { role: 'system', content: SYSTEM_PROMPT },
         { role: 'user', content: `Generate 3 multiple-choice questions about: ${prompt}. Remember to use A) B) C) D) format with exactly 4 options for each question. DO NOT use 'Answer:' format.` }

@@ -1,9 +1,11 @@
 import { create } from 'zustand';
 import { supabase } from '../lib/supabaseClient.ts';
+import { databaseService } from '../services/databaseService.ts';
+import { calculateProgress } from '../pages/Progress.tsx';
 
 interface User {
   id: string;
-  email: string;
+  email?: string;
   name?: string;
 }
 
@@ -44,9 +46,11 @@ interface StoreState {
   clearRoadmaps: () => void;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, name: string) => Promise<void>;
+  signOut: () => Promise<void>;
+  updateRoadmapProgress: (roadmapId: string, topicId: string, subtopicId: string, completed: boolean) => void;
 }
 
-export const useStore = create<StoreState>()((set) => ({
+export const useStore = create<StoreState>((set, get) => ({
   currentMode: 'tutor',
   user: null,
   roadmaps: [],
@@ -64,43 +68,112 @@ export const useStore = create<StoreState>()((set) => ({
   signIn: async (email, password) => {
     set({ isLoading: true });
     try {
-      const { data: { session }, error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
       if (error) throw error;
-      if (session?.user) {
-        set({
-          user: {
-            id: session.user.id,
-            email: session.user.email!,
-            name: session.user.user_metadata?.name
-          },
-          isLoading: false
-        });
-      }
+      set({ user: data.user });
     } catch (error) {
-      set({ isLoading: false });
+      console.error('Error signing in:', error);
       throw error;
+    } finally {
+      set({ isLoading: false });
     }
   },
   signUp: async (email, password, name) => {
     set({ isLoading: true });
     try {
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          data: { name }
-        }
+          data: { name },
+        },
       });
       if (error) throw error;
-      set({ emailConfirmationSent: true, isLoading: false });
+      set({ emailConfirmationSent: true });
     } catch (error) {
+      console.error('Error signing up:', error);
+      throw error;
+    } finally {
       set({ isLoading: false });
+    }
+  },
+  signOut: async () => {
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+      set({ user: null, roadmaps: [] });
+    } catch (error) {
+      console.error('Error signing out:', error);
       throw error;
     }
-  }
+  },
+  updateRoadmapProgress: (roadmapId, topicId, subtopicId, completed) => {
+    set((state) => {
+      const updatedRoadmaps = state.roadmaps.map((roadmap) => {
+        if (roadmap.id === roadmapId) {
+          const updatedTopics = roadmap.topics.map((topic) => {
+            if (topic.id === topicId) {
+              const updatedSubtopics = topic.subtopics.map((subtopic) => {
+                if (subtopic.id === subtopicId) {
+                  return { ...subtopic, completed };
+                }
+                return subtopic;
+              });
+              
+              // Update topic completion status based on all subtopics
+              const allCompleted = updatedSubtopics.every((st) => st.completed);
+              
+              return {
+                ...topic,
+                subtopics: updatedSubtopics,
+                completed: allCompleted,
+              };
+            }
+            return topic;
+          });
+
+          // Update roadmap progress
+          const progress = calculateProgress(updatedTopics);
+
+          // Store the updated content in the database
+          const updatedContent = roadmap.content.split('\n').map(line => {
+            // Remove any existing checkboxes
+            const cleanLine = line.replace(/\[[ x]\]/g, '').trim();
+            
+            if (line.startsWith('- ')) {
+              const subtopic = updatedTopics.flatMap(t => t.subtopics).find(st => st.title === cleanLine.slice(2));
+              if (subtopic?.completed) {
+                return `- [x] ${cleanLine.slice(2)}`;
+              } else {
+                return `- [ ] ${cleanLine.slice(2)}`;
+              }
+            }
+            return cleanLine;
+          }).join('\n');
+
+          // Update the roadmap in the database
+          databaseService.updateRoadmap(roadmap.id, {
+            content: updatedContent,
+          }).catch((error) => {
+            console.error('Error updating roadmap in database:', error);
+          });
+
+          return {
+            ...roadmap,
+            content: updatedContent,
+            topics: updatedTopics,
+            progress,
+          };
+        }
+        return roadmap;
+      });
+
+      return { roadmaps: updatedRoadmaps };
+    });
+  },
 }));
 
 export default useStore; 
