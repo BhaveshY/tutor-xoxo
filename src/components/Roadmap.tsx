@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { llmService, LLMModel } from '../services/llmService.ts';
+import { llmService, type LLMProvider } from '../services/llmService.ts';
 import { databaseService, LearningRoadmap } from '../services/databaseService.ts';
 import { useAuth } from '../hooks/useAuth.ts';
 import { ErrorMessage } from './ErrorMessage.tsx';
@@ -9,7 +9,7 @@ import { Paper, Text, TextInput, Button, Stack, Group, Loader, Box } from '@mant
 
 interface RoadmapProps {
   className?: string;
-  model: LLMModel;
+  model: LLMProvider;
 }
 
 export const Roadmap: React.FC<RoadmapProps> = ({ className, model }) => {
@@ -48,7 +48,7 @@ export const Roadmap: React.FC<RoadmapProps> = ({ className, model }) => {
     setIsLoading(true);
     setError(null);
     try {
-      const response = await llmService.generateRoadmap(userId, topic, model);
+      const response = await llmService.generateRoadmap(topic, model);
       if (response.error) {
         throw new Error(response.error);
       }

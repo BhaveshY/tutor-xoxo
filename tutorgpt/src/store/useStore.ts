@@ -19,6 +19,8 @@ interface User {
   id: string;
   email?: string;
   name?: string;
+  interests?: string[];
+  education?: string;
 }
 
 interface RoadmapSubtopic {

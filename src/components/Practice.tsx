@@ -3,11 +3,11 @@ import { practiceService, PracticeDifficulty } from '../services/practiceService
 import { PracticeSession } from '../services/databaseService.ts';
 import { useAuth } from '../hooks/useAuth.ts';
 import { ErrorMessage } from './ErrorMessage.tsx';
-import { type LLMModel } from '../services/llmService.ts';
+import { type LLMProvider } from '../services/llmService.ts';
 
 interface PracticeProps {
   className?: string;
-  provider: LLMModel;
+  provider: LLMProvider;
 }
 
 export const Practice: React.FC<PracticeProps> = ({ className, provider }) => {

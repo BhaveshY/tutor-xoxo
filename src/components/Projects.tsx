@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { llmService, LLMModel } from '../services/llmService.ts';
+import { llmService, type LLMProvider } from '../services/llmService.ts';
 import { databaseService, Project } from '../services/databaseService.ts';
 import { useAuth } from '../hooks/useAuth.ts';
 import { ErrorMessage } from './ErrorMessage.tsx';
@@ -7,7 +7,7 @@ import { Paper, Text, Button, Stack, Group, Loader, Box } from '@mantine/core';
 
 interface ProjectsProps {
   roadmapId: string;
-  model: LLMModel;
+  model: LLMProvider;
 }
 
 export const Projects: React.FC<ProjectsProps> = ({ roadmapId, model }) => {
@@ -44,7 +44,7 @@ export const Projects: React.FC<ProjectsProps> = ({ roadmapId, model }) => {
     setIsGenerating(true);
     setError(null);
     try {
-      const response = await llmService.generateProjects(userId, roadmapId, model);
+      const response = await llmService.generateProjects(roadmapId, model);
       if (response.error) {
         throw new Error(response.error);
       }
