@@ -15,6 +15,7 @@
     "@mantine/hooks": "^7.4.1",
     "@mantine/notifications": "^7.4.1",
     "@monaco-editor/react": "^4.6.0",
+    "@supabase/auth-helpers-react": "^0.5.0",
     "@supabase/supabase-js": "^2.39.3",
     "@tabler/icons-react": "^2.46.0",
     "axios": "^1.7.9",

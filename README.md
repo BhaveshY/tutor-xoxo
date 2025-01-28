@@ -7,7 +7,6 @@ An AI-powered tutoring platform that uses multiple language models to provide pe
 - Multiple AI model support through OpenRouter
 - Interactive chat with AI tutors
 - Learning roadmap generation
-- Practice project suggestions
 - Progress tracking
 
 ## Supported Models
@@ -83,15 +82,6 @@ The application uses the following tables:
    - user_id (uuid)
    - title (text)
    - content (text)
-   - provider (text, nullable)
-   - created_at (timestamp)
-
-3. `projects`
-   - id (uuid)
-   - roadmap_id (uuid)
-   - title (text)
-   - description (text)
-   - requirements (text)
    - provider (text, nullable)
    - created_at (timestamp)
 

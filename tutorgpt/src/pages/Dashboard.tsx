@@ -4,7 +4,6 @@ import { useStore } from '../store/useStore.ts';
 import { llmService } from '../services/llmService.ts';
 import { databaseService, LearningRoadmap } from '../services/databaseService.ts';
 import { supabase } from '../lib/supabaseClient.ts';
-import { Projects } from '../components/Projects.tsx';
 import Progress from './Progress.tsx';
 import { notifications } from '@mantine/notifications';
 import { 
@@ -45,6 +44,7 @@ import {
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { parseRoadmapContent, calculateProgress } from './Progress.tsx';
+import { Projects } from '../components/Projects.tsx';
 
 interface RoadmapTopic {
   id: string;
@@ -1051,23 +1051,15 @@ const Dashboard = () => {
     </Stack>
   );
 
-  const renderProjectsMode = () => (
-    <Stack>
-      <Title order={2}>Project Suggestions</Title>
-      <Text color="dimmed" mb="xl">
-        Get personalized project suggestions based on your learning roadmaps or specific topics.
-      </Text>
-      <Projects />
-    </Stack>
-  );
-
   return (
-    <Container size="xl" p="md">
-      {currentMode === 'tutor' && renderTutorMode()}
-      {currentMode === 'roadmap' && renderRoadmapMode()}
-      {currentMode === 'practice' && renderPracticeMode()}
-      {currentMode === 'progress' && renderProgressMode()}
-      {currentMode === 'projects' && renderProjectsMode()}
+    <Container size="xl" py="xl">
+      <Stack gap="md">
+        {currentMode === 'tutor' && renderTutorMode()}
+        {currentMode === 'roadmap' && renderRoadmapMode()}
+        {currentMode === 'practice' && renderPracticeMode()}
+        {currentMode === 'progress' && renderProgressMode()}
+        {currentMode === 'projects' && <Projects />}
+      </Stack>
     </Container>
   );
 };

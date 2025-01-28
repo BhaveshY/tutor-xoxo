@@ -4,7 +4,6 @@ import { useAuth } from '../hooks/useAuth.ts';
 import { databaseService } from '../services/databaseService.ts';
 import { llmService } from '../services/llmService.ts';
 import ReactMarkdown from 'react-markdown';
-import { Projects } from './Projects.tsx';
 import { ErrorMessage } from './ErrorMessage.tsx';
 
 interface LearningRoadmap {
@@ -114,7 +113,6 @@ export const Roadmap: React.FC<RoadmapProps> = ({ className }) => {
                 <ReactMarkdown className="prose">
                   {roadmap.content}
                 </ReactMarkdown>
-                <Projects roadmapId={roadmap.id} />
               </Stack>
             </Paper>
           ))}

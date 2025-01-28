@@ -1,5 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import { createOpenAIClient, MODEL, corsHeaders } from '../_shared/openrouter.ts';
+import { createOpenAIClient, MODEL } from '../_shared/openrouter.ts';
+import { createCorsResponse, handleOptionsRequest } from '../_shared/cors.ts';
 
 const openai = createOpenAIClient();
 
@@ -92,29 +93,14 @@ function validateQuestion(question: string): { valid: boolean; error?: string } 
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { 
-      headers: {
-        ...corsHeaders,
-        'Content-Type': 'application/json',
-      },
-      status: 200,
-    });
+    return handleOptionsRequest();
   }
 
   try {
     const { prompt } = await req.json();
 
     if (!prompt) {
-      return new Response(
-        JSON.stringify({ error: 'Prompt is required' }),
-        {
-          status: 400,
-          headers: {
-            ...corsHeaders,
-            'Content-Type': 'application/json',
-          },
-        }
-      );
+      return createCorsResponse({ error: 'Prompt is required' }, 400);
     }
 
     console.log('Generating questions for prompt:', prompt);
@@ -125,7 +111,7 @@ serve(async (req) => {
         { role: 'system', content: SYSTEM_PROMPT },
         { role: 'user', content: `Generate 3 multiple-choice questions about: ${prompt}. Remember to use A) B) C) D) format with exactly 4 options for each question. DO NOT use 'Answer:' format.` }
       ],
-      temperature: 0.5, // Lower temperature for more consistent formatting
+      temperature: 0.5,
       max_tokens: 2000,
     });
 
@@ -155,30 +141,14 @@ serve(async (req) => {
         .filter(Boolean)
         .join('; ');
       
-      throw new Error(`Failed to generate valid questions: ${errors}`);
+      return createCorsResponse({ error: `Failed to generate valid questions: ${errors}` }, 500);
     }
 
-    return new Response(
-      JSON.stringify({ content }),
-      {
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'application/json',
-        },
-      }
-    );
+    return createCorsResponse({ content });
+
   } catch (error) {
     console.error('Error generating questions:', error);
     const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
-    return new Response(
-      JSON.stringify({ error: errorMessage }),
-      {
-        status: 500,
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'application/json',
-        },
-      }
-    );
+    return createCorsResponse({ error: errorMessage }, 500);
   }
 }); 

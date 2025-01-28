@@ -1,5 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import { createOpenAIClient, MODEL, corsHeaders } from '../_shared/openrouter.ts';
+import { createOpenAIClient, MODEL } from '../_shared/openrouter.ts';
+import { createCorsResponse, handleOptionsRequest } from '../_shared/cors.ts';
 
 const openai = createOpenAIClient();
 
@@ -36,17 +37,14 @@ Example format:
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
+    return handleOptionsRequest();
   }
 
   try {
     const { prompt } = await req.json();
 
     if (!prompt) {
-      return new Response(
-        JSON.stringify({ error: 'Prompt is required' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return createCorsResponse({ error: 'Prompt is required' }, 400);
     }
 
     const completion = await openai.chat.completions.create({
@@ -59,16 +57,11 @@ serve(async (req) => {
       max_tokens: 2000,
     });
 
-    return new Response(
-      JSON.stringify({ content: completion.choices[0]?.message?.content || '' }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return createCorsResponse({ content: completion.choices[0]?.message?.content || '' });
+
   } catch (error: unknown) {
     console.error('Error:', error);
     const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
-    return new Response(
-      JSON.stringify({ error: errorMessage }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return createCorsResponse({ error: errorMessage }, 500);
   }
 }); 

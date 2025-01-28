@@ -14,6 +14,16 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     autoRefreshToken: true,
     detectSessionInUrl: true,
   },
+  global: {
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  }
 });
 
-export type SupabaseUser = Awaited<ReturnType<typeof supabase.auth.getUser>>['data']['user']; 
+// Initialize Edge Functions with the same client
+supabase.functions.setAuth(supabaseAnonKey);
+
+export type SupabaseUser = Awaited<ReturnType<typeof supabase.auth.getUser>>['data']['user'];
+
+export { useSupabaseClient, useUser } from '@supabase/auth-helpers-react' 

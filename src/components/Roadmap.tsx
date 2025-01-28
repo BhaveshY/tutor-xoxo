@@ -3,7 +3,6 @@ import { llmService, type LLMProvider } from '../services/llmService.ts';
 import { databaseService, LearningRoadmap } from '../services/databaseService.ts';
 import { useAuth } from '../hooks/useAuth.ts';
 import { ErrorMessage } from './ErrorMessage.tsx';
-import { Projects } from './Projects.tsx';
 import ReactMarkdown from 'react-markdown';
 import { Paper, Text, TextInput, Button, Stack, Group, Loader, Box } from '@mantine/core';
 
@@ -106,7 +105,6 @@ export const Roadmap: React.FC<RoadmapProps> = ({ className, model }) => {
                 <ReactMarkdown className="prose">
                   {roadmap.content}
                 </ReactMarkdown>
-                <Projects model={model} roadmapId={roadmap.id} />
               </Stack>
             </Paper>
           ))}

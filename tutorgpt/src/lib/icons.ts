@@ -1,0 +1,1 @@
+export { FaBookmark, FaRegBookmark, FaSearch } from 'react-icons/fa' 

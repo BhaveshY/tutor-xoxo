@@ -27,16 +27,6 @@ export interface LearningRoadmap {
   provider?: string;
 }
 
-export interface Project {
-  id: string;
-  title: string;
-  description: string;
-  requirements?: string;
-  roadmap_id: string;
-  created_at: string;
-  provider?: string;
-}
-
 export interface PracticeSession {
   id: string;
   user_id: string;
@@ -88,25 +78,6 @@ export const databaseService = {
     return data as LearningRoadmap[];
   },
 
-  getProjects: async (roadmapId: string) => {
-    const { data, error } = await supabase
-      .from('projects')
-      .select('*')
-      .eq('roadmap_id', roadmapId)
-      .order('created_at', { ascending: true });
-
-    if (error) throw error;
-    return data as Project[];
-  },
-
-  createProjects: async (projects: Omit<Project, 'id' | 'created_at'>[]) => {
-    const { error } = await supabase
-      .from('projects')
-      .insert(projects);
-
-    if (error) throw error;
-  },
-
   createPracticeSession: async (session: Omit<PracticeSession, 'id' | 'created_at'>) => {
     const { data, error } = await supabase
       .from('practice_sessions')
@@ -118,23 +89,26 @@ export const databaseService = {
     return data as PracticeSession;
   },
 
-  updatePracticeSession: async (sessionId: string, updates: Partial<PracticeSession>) => {
-    const { error } = await supabase
-      .from('practice_sessions')
-      .update(updates)
-      .eq('id', sessionId);
-
-    if (error) throw error;
-  },
-
-  getPracticeSessions: async (userIdOrSessionId: string) => {
+  getPracticeSessions: async (userId: string) => {
     const { data, error } = await supabase
       .from('practice_sessions')
       .select('*')
-      .or(`user_id.eq.${userIdOrSessionId},id.eq.${userIdOrSessionId}`)
+      .eq('user_id', userId)
       .order('created_at', { ascending: false });
 
     if (error) throw error;
     return data as PracticeSession[];
+  },
+
+  updatePracticeSession: async (sessionId: string, updates: Partial<PracticeSession>) => {
+    const { data, error } = await supabase
+      .from('practice_sessions')
+      .update(updates)
+      .eq('id', sessionId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data as PracticeSession;
   }
 };

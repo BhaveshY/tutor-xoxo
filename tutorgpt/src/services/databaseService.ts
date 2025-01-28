@@ -38,6 +38,34 @@ export interface LearningRoadmap {
   updated_at: string;
 }
 
+export interface ProjectSuggestion {
+  id: string;
+  title: string;
+  description: string;
+  difficulty: 'beginner' | 'intermediate' | 'advanced';
+  estimated_hours: number;
+  tech_stack: string[];
+  learning_outcomes: string[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Project {
+  id: string;
+  user_id: string;
+  suggestion_id?: string;
+  title: string;
+  description: string;
+  difficulty: 'beginner' | 'intermediate' | 'advanced';
+  estimated_hours: number;
+  tech_stack: string[];
+  learning_outcomes: string[];
+  status: 'not_started' | 'in_progress' | 'completed';
+  progress: number;
+  created_at: string;
+  updated_at: string;
+}
+
 export const databaseService = {
   // Profile operations
   getProfile: async (userId: string): Promise<Profile | null> => {
@@ -214,5 +242,60 @@ export const databaseService = {
       console.error('Error in deleteRoadmap:', error);
       throw error;
     }
+  },
+
+  // Project suggestion operations
+  getProjectSuggestions: async () => {
+    const { data, error } = await supabase
+      .from('project_suggestions')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data as ProjectSuggestion[];
+  },
+
+  // Project operations
+  createProject: async (project: Omit<Project, 'id' | 'created_at' | 'updated_at'>) => {
+    const { data, error } = await supabase
+      .from('projects')
+      .insert([project])
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data as Project;
+  },
+
+  getProjects: async (userId: string) => {
+    const { data, error } = await supabase
+      .from('projects')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data as Project[];
+  },
+
+  updateProject: async (projectId: string, updates: Partial<Project>) => {
+    const { data, error } = await supabase
+      .from('projects')
+      .update(updates)
+      .eq('id', projectId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data as Project;
+  },
+
+  deleteProject: async (projectId: string) => {
+    const { error } = await supabase
+      .from('projects')
+      .delete()
+      .eq('id', projectId);
+
+    if (error) throw error;
   }
 }; 

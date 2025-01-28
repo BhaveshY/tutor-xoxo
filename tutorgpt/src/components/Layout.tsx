@@ -1,16 +1,17 @@
 import React, { ReactNode } from 'react';
 import { AppShell, Burger, Group, Text, Button, Stack, NavLink } from '@mantine/core';
-import { IconBook, IconRoad, IconBrain, IconLogout, IconProgress, IconChartBar, IconBookmark } from '@tabler/icons-react';
-import { useNavigate } from 'react-router-dom';
+import { IconBook, IconRoad, IconBrain, IconLogout, IconProgress, IconChartBar, IconCode } from '@tabler/icons-react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import useStore from '../store/useStore.ts';
 
 interface LayoutProps {
   children: ReactNode;
 }
 
-const Layout = ({ children }: LayoutProps) => {
+const Layout: React.FC<LayoutProps> = ({ children }) => {
   const { currentMode, setCurrentMode, user, signOut } = useStore();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const handleSignOut = async () => {
     await signOut();
@@ -46,31 +47,46 @@ const Layout = ({ children }: LayoutProps) => {
             label="Tutor"
             leftSection={<IconBook size={20} />}
             active={currentMode === 'tutor'}
-            onClick={() => setCurrentMode('tutor')}
+            onClick={() => {
+              setCurrentMode('tutor');
+              navigate('/');
+            }}
           />
           <NavLink
             label="Roadmap"
             leftSection={<IconRoad size={20} />}
             active={currentMode === 'roadmap'}
-            onClick={() => setCurrentMode('roadmap')}
+            onClick={() => {
+              setCurrentMode('roadmap');
+              navigate('/');
+            }}
           />
           <NavLink
             label="Practice"
             leftSection={<IconBrain size={20} />}
             active={currentMode === 'practice'}
-            onClick={() => setCurrentMode('practice')}
+            onClick={() => {
+              setCurrentMode('practice');
+              navigate('/');
+            }}
           />
           <NavLink
             label="Projects"
-            leftSection={<IconBookmark size={20} />}
+            leftSection={<IconCode size={20} />}
             active={currentMode === 'projects'}
-            onClick={() => setCurrentMode('projects')}
+            onClick={() => {
+              setCurrentMode('projects');
+              navigate('/');
+            }}
           />
           <NavLink
             label="Progress"
             leftSection={<IconChartBar size={20} />}
             active={currentMode === 'progress'}
-            onClick={() => setCurrentMode('progress')}
+            onClick={() => {
+              setCurrentMode('progress');
+              navigate('/');
+            }}
           />
         </Stack>
       </AppShell.Navbar>

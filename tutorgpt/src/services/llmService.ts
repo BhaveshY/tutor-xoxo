@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
+import { supabase } from '../lib/supabaseClient.ts';
 import { databaseService } from './databaseService.ts';
 
 interface ChatMessage {
@@ -6,19 +6,7 @@ interface ChatMessage {
   content: string;
 }
 
-type PracticeParams = {
-  prompt: string;
-  difficulty: 'easy' | 'medium' | 'hard';
-};
-
-interface LLMResponse {
-  content: any;
-  error?: string;
-  metadata?: {
-    count?: number;
-    difficulty?: string;
-  };
-}
+export type LLMProvider = 'deepseek/deepseek-r1';
 
 interface PracticeQuestion {
   id: string;
@@ -31,25 +19,39 @@ interface PracticeQuestion {
   };
   correct: "A" | "B" | "C" | "D";
   explanation: string;
+  selectedAnswer?: string;
+  isCorrect?: boolean;
   difficulty: "easy" | "medium" | "hard";
+}
+
+type PracticeParams = {
+  prompt: string;
+  difficulty: 'easy' | 'medium' | 'hard';
+  provider?: LLMProvider;
+};
+
+interface LLMResponse {
+  content: any;
+  error?: string;
+  metadata?: {
+    count?: number;
+    difficulty?: string;
+    provider?: string;
+  };
 }
 
 interface PracticeResponse extends LLMResponse {
   content: PracticeQuestion[];
 }
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
-
 export const llmService = {
-  generateTutorResponse: async (prompt: string, chatHistory: ChatMessage[] = []): Promise<LLMResponse> => {
+  generateTutorResponse: async (prompt: string, chatHistory: ChatMessage[] = [], provider: LLMProvider = 'deepseek/deepseek-r1'): Promise<LLMResponse> => {
     try {
       const { data, error } = await supabase.functions.invoke<LLMResponse>('tutor', {
         body: { 
           prompt,
           chatHistory,
+          model: provider,
           subject: prompt.match(/\[Subject: (.+?)\]/)?.[1] || 'General'
         },
       });
@@ -62,10 +64,10 @@ export const llmService = {
     }
   },
 
-  generateRoadmap: async (prompt: string): Promise<LLMResponse> => {
+  generateRoadmap: async (prompt: string, provider: LLMProvider = 'deepseek/deepseek-r1'): Promise<LLMResponse> => {
     try {
       const { data, error } = await supabase.functions.invoke<LLMResponse>('roadmap', {
-        body: { prompt },
+        body: { prompt, model: provider },
       });
 
       if (error) throw error;
@@ -76,38 +78,51 @@ export const llmService = {
     }
   },
 
-  generatePracticeQuestions: async ({ prompt, difficulty }: PracticeParams): Promise<PracticeResponse> => {
+  getChatHistory: async (userId: string) => {
+    return databaseService.getChatHistory(userId);
+  },
+
+  generatePracticeQuestions: async ({ prompt, difficulty, provider = 'deepseek/deepseek-r1' }: PracticeParams): Promise<PracticeResponse> => {
     try {
-      const { data, error } = await supabase.functions.invoke<{ 
-        content: PracticeQuestion[];
-        metadata: {
-          count: number;
-          difficulty: string;
-        };
-      }>('practice', {
-        body: { prompt, difficulty },
+      console.log('Generating practice questions with params:', { prompt, difficulty, provider });
+      
+      const { data, error } = await supabase.functions.invoke<{ content: PracticeQuestion[] }>('practice', {
+        body: { prompt, difficulty, model: provider },
       });
 
-      if (error) throw error;
+      console.log('Raw response from practice function:', data);
 
-      console.log('Received data from practice function:', JSON.stringify(data, null, 2));
+      if (error) {
+        console.error('Supabase function error:', error);
+        throw error;
+      }
 
-      if (!data?.content || !Array.isArray(data.content)) {
-        console.error('Invalid response format:', data);
+      if (!data) {
+        console.error('No data returned from practice function');
+        throw new Error('No data returned from practice function');
+      }
+
+      if (!data.content) {
+        console.error('No content in response:', data);
+        throw new Error('No content in response');
+      }
+
+      if (!Array.isArray(data.content)) {
+        console.error('Content is not an array:', data.content);
         throw new Error('Invalid response format: content is not an array');
       }
 
-      return { 
+      return {
         content: data.content,
-        metadata: data.metadata
+        metadata: {
+          count: data.content.length,
+          difficulty,
+          provider
+        }
       };
     } catch (error) {
       console.error('Error generating practice questions:', error);
       return { error: error instanceof Error ? error.message : 'An unknown error occurred', content: [] };
     }
-  },
-
-  getChatHistory: async (userId: string) => {
-    return databaseService.getChatHistory(userId);
   }
-}; 
+} 

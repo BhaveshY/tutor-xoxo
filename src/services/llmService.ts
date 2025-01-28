@@ -83,20 +83,6 @@ export const llmService = {
     }
   },
 
-  generateProjects: async (prompt: string, provider: LLMProvider = 'deepseek/deepseek-r1'): Promise<LLMResponse> => {
-    try {
-      const { data, error } = await supabase.functions.invoke<LLMResponse>('projects', {
-        body: { prompt, model: provider },
-      });
-
-      if (error) throw error;
-      return data || { content: '', error: 'No response data' };
-    } catch (error) {
-      console.error('Error generating project suggestions:', error);
-      return { error: error instanceof Error ? error.message : 'An unknown error occurred', content: '' };
-    }
-  },
-
   getChatHistory: async (userId: string) => {
     return databaseService.getChatHistory(userId);
   },
@@ -131,45 +117,17 @@ export const llmService = {
         throw new Error('Invalid response format: content is not an array');
       }
 
-      // Validate each question
-      const validatedQuestions = data.content.map((q, index) => {
-        console.log(`Validating question ${index + 1}:`, q);
-        
-        if (!q.id || !q.question || !q.options || !q.correct || !q.explanation) {
-          console.error(`Invalid question format for question ${index + 1}:`, q);
-          throw new Error(`Invalid question format for question ${index + 1}`);
+      return {
+        content: data.content,
+        metadata: {
+          count: data.content.length,
+          difficulty,
+          provider
         }
-
-        // Ensure correct answer is valid
-        if (!['A', 'B', 'C', 'D'].includes(q.correct)) {
-          console.error(`Invalid correct answer for question ${index + 1}:`, q.correct);
-          throw new Error(`Invalid correct answer format in question ${index + 1}`);
-        }
-
-        // Return validated question
-        return {
-          id: q.id,
-          question: q.question,
-          options: {
-            A: q.options.A,
-            B: q.options.B,
-            C: q.options.C,
-            D: q.options.D
-          },
-          correct: q.correct as "A" | "B" | "C" | "D",
-          explanation: q.explanation,
-          difficulty: q.difficulty || difficulty
-        };
-      });
-
-      console.log('Validated questions:', validatedQuestions);
-
-      return { 
-        content: validatedQuestions
       };
     } catch (error) {
       console.error('Error generating practice questions:', error);
       return { error: error instanceof Error ? error.message : 'An unknown error occurred', content: [] };
     }
-  },
+  }
 }; 

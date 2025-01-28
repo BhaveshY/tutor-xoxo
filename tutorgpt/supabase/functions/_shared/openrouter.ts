@@ -13,10 +13,4 @@ export const createOpenAIClient = () => {
   return openai;
 };
 
-export const MODEL = 'deepseek-coder-33b-instruct';
-
-export const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
-}; 
+export const MODEL = 'deepseek-coder-33b-instruct'; 
