@@ -39,6 +39,34 @@ export interface PracticeSession {
   completed_at?: string;
 }
 
+export interface Project {
+  id: string;
+  user_id: string;
+  suggestion_id: string;
+  title: string;
+  description: string;
+  difficulty: 'beginner' | 'intermediate' | 'advanced';
+  estimated_hours: number;
+  tech_stack: string[];
+  learning_outcomes: string[];
+  status: 'not_started' | 'in_progress' | 'completed';
+  progress: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ProjectSuggestion {
+  id: string;
+  title: string;
+  description: string;
+  difficulty: 'beginner' | 'intermediate' | 'advanced';
+  estimated_hours: number;
+  tech_stack: string[];
+  learning_outcomes: string[];
+  created_at: string;
+  updated_at: string;
+}
+
 export const databaseService = {
   saveChatMessage: async (message: ChatMessage) => {
     const { error } = await supabase
@@ -110,5 +138,95 @@ export const databaseService = {
 
     if (error) throw error;
     return data as PracticeSession;
+  },
+
+  // Project suggestion operations
+  getProjectSuggestions: async (): Promise<ProjectSuggestion[]> => {
+    try {
+      console.log('Fetching project suggestions from database...');
+      const { data, error } = await supabase
+        .from('project_suggestions')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Database error fetching suggestions:', error);
+        throw error;
+      }
+
+      console.log('Successfully fetched suggestions:', data);
+      return data || [];
+    } catch (error) {
+      console.error('Error in getProjectSuggestions:', error);
+      throw error;
+    }
+  },
+
+  // Project operations
+  createProject: async (project: Omit<Project, 'id' | 'created_at' | 'updated_at'>): Promise<Project> => {
+    try {
+      console.log('Creating new project:', project);
+      const { data, error } = await supabase
+        .from('projects')
+        .insert([project])
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Database error creating project:', error);
+        throw error;
+      }
+
+      console.log('Successfully created project:', data);
+      return data;
+    } catch (error) {
+      console.error('Error in createProject:', error);
+      throw error;
+    }
+  },
+
+  getProjects: async (userId: string): Promise<Project[]> => {
+    try {
+      console.log('Fetching projects for user:', userId);
+      const { data, error } = await supabase
+        .from('projects')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Database error fetching projects:', error);
+        throw error;
+      }
+
+      console.log('Successfully fetched projects:', data);
+      return data || [];
+    } catch (error) {
+      console.error('Error in getProjects:', error);
+      throw error;
+    }
+  },
+
+  updateProject: async (projectId: string, updates: Partial<Project>): Promise<Project> => {
+    try {
+      console.log('Updating project:', projectId, 'with:', updates);
+      const { data, error } = await supabase
+        .from('projects')
+        .update(updates)
+        .eq('id', projectId)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Database error updating project:', error);
+        throw error;
+      }
+
+      console.log('Successfully updated project:', data);
+      return data;
+    } catch (error) {
+      console.error('Error in updateProject:', error);
+      throw error;
+    }
   }
 };

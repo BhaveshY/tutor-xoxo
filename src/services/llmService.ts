@@ -44,6 +44,19 @@ interface PracticeResponse extends LLMResponse {
   content: PracticeQuestion[];
 }
 
+interface ProjectSuggestion {
+  title: string;
+  description: string;
+  difficulty: 'beginner' | 'intermediate' | 'advanced';
+  estimated_hours: number;
+  tech_stack: string[];
+  learning_outcomes: string[];
+}
+
+interface ProjectResponse extends LLMResponse {
+  content: ProjectSuggestion[];
+}
+
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
@@ -127,6 +140,25 @@ export const llmService = {
       };
     } catch (error) {
       console.error('Error generating practice questions:', error);
+      return { error: error instanceof Error ? error.message : 'An unknown error occurred', content: [] };
+    }
+  },
+
+  generateProjects: async (topic: string, provider: LLMProvider = 'deepseek/deepseek-r1'): Promise<ProjectResponse> => {
+    try {
+      const { data, error } = await supabase.functions.invoke<ProjectResponse>('projects', {
+        body: { topic, model: provider },
+      });
+
+      if (error) throw error;
+      
+      if (!data || !data.content) {
+        throw new Error('No response data');
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Error generating projects:', error);
       return { error: error instanceof Error ? error.message : 'An unknown error occurred', content: [] };
     }
   }
