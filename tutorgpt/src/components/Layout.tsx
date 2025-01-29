@@ -1,6 +1,6 @@
 import React, { ReactNode } from 'react';
 import { AppShell, Burger, Group, Text, Button, Stack, NavLink } from '@mantine/core';
-import { IconBook, IconRoad, IconBrain, IconLogout, IconProgress, IconChartBar, IconCode } from '@tabler/icons-react';
+import { IconBook, IconRoad, IconBrain, IconLogout, IconProgress, IconChartBar, IconCode, IconReportAnalytics } from '@tabler/icons-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import useStore from '../store/useStore.ts';
 
@@ -85,6 +85,15 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             active={currentMode === 'progress'}
             onClick={() => {
               setCurrentMode('progress');
+              navigate('/');
+            }}
+          />
+          <NavLink
+            label="Evaluation"
+            leftSection={<IconReportAnalytics size={20} />}
+            active={currentMode === 'evaluation'}
+            onClick={() => {
+              setCurrentMode('evaluation');
               navigate('/');
             }}
           />

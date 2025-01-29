@@ -45,7 +45,7 @@ interface SavedRoadmap {
   timestamp: Date;
 }
 
-type Mode = 'tutor' | 'roadmap' | 'practice' | 'progress' | 'projects';
+type Mode = 'tutor' | 'roadmap' | 'practice' | 'progress' | 'projects' | 'evaluation';
 
 interface StoreState {
   currentMode: Mode;

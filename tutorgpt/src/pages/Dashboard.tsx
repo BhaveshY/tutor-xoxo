@@ -45,6 +45,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { parseRoadmapContent, calculateProgress } from './Progress.tsx';
 import { Projects } from '../components/Projects.tsx';
+import Evaluation from './Evaluation.tsx';
 
 interface RoadmapTopic {
   id: string;
@@ -1061,6 +1062,16 @@ const Dashboard = () => {
     </Stack>
   );
 
+  const renderEvaluationMode = () => (
+    <Stack>
+      <Title order={2}>Learning Evaluation</Title>
+      <Text color="dimmed" mb="xl">
+        View your personalized learning evaluation and insights.
+      </Text>
+      <Evaluation />
+    </Stack>
+  );
+
   return (
     <Container size="xl" py="xl">
       <Stack gap="md">
@@ -1069,6 +1080,7 @@ const Dashboard = () => {
         {currentMode === 'practice' && renderPracticeMode()}
         {currentMode === 'progress' && renderProgressMode()}
         {currentMode === 'projects' && renderProjectsMode()}
+        {currentMode === 'evaluation' && renderEvaluationMode()}
       </Stack>
     </Container>
   );

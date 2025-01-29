@@ -1,7 +1,9 @@
 import React, { useState } from "react";
 import { notifications } from "@mantine/notifications";
+import { Container, Stack, Title, Text } from "@mantine/core";
 import { llmService } from "../services/llmService.ts";
-import { useStore } from "../../tutorgpt/src/store/useStore.ts";
+import useStore from "../store/useStore.ts";
+import { Evaluation } from "../components/Evaluation.tsx";
 
 interface ChatMessage {
   role: "user" | "assistant";
@@ -23,7 +25,7 @@ interface PracticeQuestion {
   difficulty: "easy" | "medium" | "hard";
 }
 
-const Dashboard: React.FC = () => {
+const Dashboard = () => {
   const {
     currentMode,
     user,
@@ -129,10 +131,77 @@ const Dashboard: React.FC = () => {
     setIsLoading(false);
   };
 
+  const renderTutorMode = () => (
+    <Stack>
+      <Title order={2}>AI Tutor</Title>
+      <Text color="dimmed" mb="xl">
+        Chat with your AI tutor.
+      </Text>
+      {/* Tutor content */}
+    </Stack>
+  );
+
+  const renderRoadmapMode = () => (
+    <Stack>
+      <Title order={2}>Learning Roadmap</Title>
+      <Text color="dimmed" mb="xl">
+        Create and view your learning roadmaps.
+      </Text>
+      {/* Roadmap content */}
+    </Stack>
+  );
+
+  const renderPracticeMode = () => (
+    <Stack>
+      <Title order={2}>Practice</Title>
+      <Text color="dimmed" mb="xl">
+        Practice what you've learned.
+      </Text>
+      {/* Practice content */}
+    </Stack>
+  );
+
+  const renderProgressMode = () => (
+    <Stack>
+      <Title order={2}>Progress</Title>
+      <Text color="dimmed" mb="xl">
+        Track your learning progress.
+      </Text>
+      {/* Progress content */}
+    </Stack>
+  );
+
+  const renderProjectsMode = () => (
+    <Stack>
+      <Title order={2}>Projects</Title>
+      <Text color="dimmed" mb="xl">
+        Work on learning projects.
+      </Text>
+      {/* Projects content */}
+    </Stack>
+  );
+
+  const renderEvaluationMode = () => (
+    <Stack>
+      <Title order={2}>Learning Evaluation</Title>
+      <Text color="dimmed" mb="xl">
+        View your learning progress evaluation and recommendations.
+      </Text>
+      <Evaluation />
+    </Stack>
+  );
+
   return (
-    <div>
-      {/* Your JSX here */}
-    </div>
+    <Container size="xl" py="xl">
+      <Stack gap="md">
+        {currentMode === 'tutor' && renderTutorMode()}
+        {currentMode === 'roadmap' && renderRoadmapMode()}
+        {currentMode === 'practice' && renderPracticeMode()}
+        {currentMode === 'progress' && renderProgressMode()}
+        {currentMode === 'projects' && renderProjectsMode()}
+        {currentMode === 'evaluation' && renderEvaluationMode()}
+      </Stack>
+    </Container>
   );
 };
 
