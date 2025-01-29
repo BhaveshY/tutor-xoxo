@@ -74,7 +74,7 @@ tutorxoxo/
 
 - **Frontend**: React, TypeScript, Mantine UI
 - **Backend**: Supabase, Edge Functions
-- **AI**: LiteLLM (supporting GPT-4, Grok-2, Claude 3, and Gemini Pro)
+- **AI**: OpenRouter
 - **State Management**: Custom store implementation
 - **Styling**: Mantine UI components and custom CSS
 
