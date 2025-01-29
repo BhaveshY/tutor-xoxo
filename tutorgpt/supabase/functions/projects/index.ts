@@ -5,110 +5,179 @@ import { createCorsResponse, handleOptionsRequest } from '../_shared/cors.ts'
 
 const openai = createOpenAIClient();
 
-const SYSTEM_PROMPT = `You are a project suggestion generator. Generate detailed project suggestions based on the user's topic of interest.
-
-Each project suggestion should include:
-1. Title: A clear, concise title
-2. Description: A detailed description of the project
-3. Difficulty: One of: beginner, intermediate, advanced
-4. Estimated Hours: Realistic time estimate to complete
-5. Tech Stack: Array of technologies/tools needed
-6. Learning Outcomes: Array of skills/concepts to be learned
-
-Format each project as a JSON object with these exact fields:
-{
-  "title": string,
-  "description": string,
-  "difficulty": "beginner" | "intermediate" | "advanced",
-  "estimated_hours": number,
-  "tech_stack": string[],
-  "learning_outcomes": string[]
+interface ProjectGenerationParams {
+  topic: string;
+  preferredDifficulty?: 'beginner' | 'intermediate' | 'advanced';
+  preferredTech?: string[];
 }
 
-Generate exactly 3 project suggestions in a JSON array.`;
+interface ProjectSuggestion {
+  id?: string;
+  title: string;
+  description: string;
+  difficulty: 'beginner' | 'intermediate' | 'advanced';
+  estimated_hours: number;
+  tech_stack: string[];
+  learning_outcomes: string[];
+  created_at?: string;
+  updated_at?: string;
+}
+
+// Function to generate a UUID v4
+function uuidv4() {
+  return crypto.randomUUID();
+}
+
+const SYSTEM_PROMPT = `You are a project suggestion generator specializing in creating detailed, practical coding projects tailored to the user's interests and skill level.
+
+Your task is to generate exactly 3 project suggestions in a JSON array format. Each project must be practical, educational, and well-defined.
+
+Required JSON format:
+[
+  {
+    "title": "Project Title",
+    "description": "Detailed project description with overview, features, implementation steps, and potential extensions",
+    "difficulty": "beginner" | "intermediate" | "advanced",
+    "estimated_hours": number (realistic estimate including learning time),
+    "tech_stack": ["technology1", "technology2", ...],
+    "learning_outcomes": ["specific skill or concept to be learned", ...]
+  },
+  // ... two more project objects with the same structure
+]
+
+Guidelines:
+1. Make projects practical and real-world focused
+2. Include modern technologies and best practices
+3. Match difficulty levels appropriately
+4. Provide clear, actionable learning outcomes
+5. Keep descriptions detailed but concise
+6. Include both frontend and backend aspects when appropriate
+
+Important: Ensure the response is a valid JSON array containing exactly 3 project objects.`;
 
 serve(async (req) => {
+  console.log('New request received:', {
+    method: req.method,
+    url: req.url,
+    headers: Object.fromEntries(req.headers.entries())
+  });
+
   if (req.method === 'OPTIONS') {
     return handleOptionsRequest();
   }
 
   try {
-    const { topic } = await req.json();
+    // Parse and validate request body
+    const rawBody = await req.text();
+    console.log('Raw request body:', rawBody);
+    
+    let body: ProjectGenerationParams;
+    try {
+      body = JSON.parse(rawBody);
+    } catch (e) {
+      console.error('Failed to parse request body:', e);
+      return createCorsResponse({ error: 'Invalid JSON in request body' }, 400);
+    }
 
-    if (!topic) {
+    // Validate required fields
+    if (!body.topic?.trim()) {
       return createCorsResponse({ error: 'Topic is required' }, 400);
     }
 
-    // If it's a generation request
-    if (topic) {
+    // Construct generation prompt
+    let userPrompt = `Generate 3 project suggestions for topic: ${body.topic}
+
+Please ensure each project suggestion follows the required JSON format and includes all necessary fields.`;
+    
+    if (body.preferredDifficulty) {
+      userPrompt += `\nPreferred difficulty level: ${body.preferredDifficulty}`;
+    }
+    
+    if (body.preferredTech?.length) {
+      userPrompt += `\nPreferred technologies: ${body.preferredTech.join(', ')}`;
+    }
+
+    console.log('Sending prompt to OpenRouter:', { systemPrompt: SYSTEM_PROMPT, userPrompt });
+
+    try {
       const completion = await openai.chat.completions.create({
         model: MODEL,
         messages: [
           { role: 'system', content: SYSTEM_PROMPT },
-          { role: 'user', content: `Generate 3 project suggestions for: ${topic}` }
+          { role: 'user', content: userPrompt }
         ],
         temperature: 0.7,
-        max_tokens: 2000,
+        max_tokens: 2500,
       });
 
-      const content = completion.choices[0]?.message?.content || '';
-      
+      const content = completion.choices[0]?.message?.content;
+      if (!content) {
+        throw new Error('No content in OpenRouter response');
+      }
+
+      console.log('Raw OpenRouter response:', content);
+
+      // Try to extract JSON from the response
+      const jsonMatch = content.match(/\[[\s\S]*\]/);
+      if (!jsonMatch) {
+        throw new Error('No JSON array found in response');
+      }
+
+      // Parse and validate suggestions
+      let suggestions: ProjectSuggestion[];
       try {
-        const suggestions = JSON.parse(content);
+        suggestions = JSON.parse(jsonMatch[0]);
+        
         if (!Array.isArray(suggestions) || suggestions.length !== 3) {
-          throw new Error('Invalid response format');
+          throw new Error('Invalid response format - expected array of 3 suggestions');
         }
 
         // Validate each suggestion
         suggestions.forEach((suggestion, index) => {
-          if (!suggestion.title || !suggestion.description || 
-              !suggestion.difficulty || !suggestion.estimated_hours ||
-              !Array.isArray(suggestion.tech_stack) || !Array.isArray(suggestion.learning_outcomes)) {
-            throw new Error(`Invalid suggestion format at index ${index}`);
-          }
+          const validDifficulties = ['beginner', 'intermediate', 'advanced'];
+          
+          if (!suggestion.title?.trim()) throw new Error(`Missing title in suggestion ${index}`);
+          if (!suggestion.description?.trim()) throw new Error(`Missing description in suggestion ${index}`);
+          if (!validDifficulties.includes(suggestion.difficulty)) throw new Error(`Invalid difficulty in suggestion ${index}`);
+          if (typeof suggestion.estimated_hours !== 'number' || suggestion.estimated_hours <= 0) throw new Error(`Invalid estimated hours in suggestion ${index}`);
+          if (!Array.isArray(suggestion.tech_stack) || suggestion.tech_stack.length === 0) throw new Error(`Invalid tech stack in suggestion ${index}`);
+          if (!Array.isArray(suggestion.learning_outcomes) || suggestion.learning_outcomes.length === 0) throw new Error(`Invalid learning outcomes in suggestion ${index}`);
         });
-
-        // Store suggestions in the database
-        const supabaseClient = createClient(
-          Deno.env.get('SUPABASE_URL') ?? '',
-          Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-        );
-
-        const { error: dbError } = await supabaseClient
-          .from('project_suggestions')
-          .insert(suggestions);
-
-        if (dbError) {
-          throw dbError;
-        }
-
-        return createCorsResponse({ content: suggestions });
-      } catch (parseError) {
-        console.error('Error parsing suggestions:', parseError);
+      } catch (error) {
+        console.error('Error parsing/validating suggestions:', error);
         return createCorsResponse({ error: 'Failed to generate valid project suggestions' }, 500);
       }
+
+      // Store suggestions in database
+      const supabaseClient = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      );
+
+      const now = new Date().toISOString();
+      const suggestionsWithIds = suggestions.map(suggestion => ({
+        ...suggestion,
+        id: uuidv4(),
+        created_at: now,
+        updated_at: now
+      }));
+
+      const { error: dbError } = await supabaseClient
+        .from('project_suggestions')
+        .insert(suggestionsWithIds);
+
+      if (dbError) {
+        console.error('Database error:', dbError);
+        return createCorsResponse({ error: 'Failed to store project suggestions' }, 500);
+      }
+
+      return createCorsResponse({ content: suggestionsWithIds });
+    } catch (error) {
+      console.error('OpenRouter API error:', error);
+      return createCorsResponse({ error: 'Failed to generate project suggestions' }, 500);
     }
-
-    // If it's a fetch request (no topic provided in body)
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
-
-    const { data: suggestions, error: dbError } = await supabaseClient
-      .from('project_suggestions')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(3);
-
-    if (dbError) {
-      throw dbError;
-    }
-
-    return createCorsResponse({ content: suggestions });
-  } catch (err) {
-    console.error('Error:', err);
-    const error = err as Error;
-    return createCorsResponse({ error: error.message }, 500);
+  } catch (error) {
+    console.error('Unexpected error:', error);
+    return createCorsResponse({ error: 'An unexpected error occurred' }, 500);
   }
 }); 

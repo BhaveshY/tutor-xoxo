@@ -15,33 +15,38 @@ export const Projects: React.FC<ProjectsProps> = ({ className }) => {
   const [suggestions, setSuggestions] = useState<ProjectSuggestion[]>([]);
   const [userProjects, setUserProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedDifficulty, setSelectedDifficulty] = useState<string | null>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
   const [topic, setTopic] = useState('');
+  const [preferredTech, setPreferredTech] = useState<string[]>([]);
+  const [customTech, setCustomTech] = useState('');
   const { session } = useAuth();
   const userId = session?.user?.id;
+
+  const commonTechnologies = [
+    'React', 'Node.js', 'Python', 'JavaScript',
+    'TypeScript', 'MongoDB', 'PostgreSQL', 'Express',
+    'Next.js', 'Vue.js', 'Django', 'Flask',
+    'GraphQL', 'REST API', 'Docker', 'AWS'
+  ];
 
   useEffect(() => {
     loadData();
   }, [userId]);
 
   const loadData = async () => {
-    console.log('Loading projects data...');
     setIsLoading(true);
     setError(null);
     try {
-      console.log('Fetching suggestions and projects...');
       const [suggestionsData, projectsData] = await Promise.all([
         databaseService.getProjectSuggestions(),
         userId ? databaseService.getProjects(userId) : Promise.resolve([])
       ]);
-      console.log('Suggestions loaded:', suggestionsData);
-      console.log('Projects loaded:', projectsData);
       setSuggestions(suggestionsData);
       setUserProjects(projectsData);
     } catch (error) {
-      console.error('Error loading data:', error);
+      console.error('Error loading project data:', error);
       setError('Failed to load projects. Please try again.');
     } finally {
       setIsLoading(false);
@@ -89,6 +94,23 @@ export const Projects: React.FC<ProjectsProps> = ({ className }) => {
     }
   };
 
+  const handleAddTech = (tech: string) => {
+    if (!preferredTech.includes(tech)) {
+      setPreferredTech([...preferredTech, tech]);
+    }
+  };
+
+  const handleRemoveTech = (tech: string) => {
+    setPreferredTech(preferredTech.filter(t => t !== tech));
+  };
+
+  const handleAddCustomTech = () => {
+    if (customTech.trim() && !preferredTech.includes(customTech.trim())) {
+      setPreferredTech([...preferredTech, customTech.trim()]);
+      setCustomTech('');
+    }
+  };
+
   const handleGenerateProjects = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!topic.trim() || isGenerating) return;
@@ -96,10 +118,18 @@ export const Projects: React.FC<ProjectsProps> = ({ className }) => {
     setIsGenerating(true);
     setError(null);
     try {
-      const response = await llmService.generateProjects(topic);
+      const response = await llmService.generateProjects({
+        topic,
+        preferredDifficulty: selectedDifficulty as 'beginner' | 'intermediate' | 'advanced' | undefined,
+        preferredTech: preferredTech.length > 0 ? preferredTech : undefined
+      });
       
       if (response.error) {
         throw new Error(response.error);
+      }
+
+      if (!response.content) {
+        throw new Error('No suggestions returned');
       }
 
       // Add missing fields to the generated suggestions
@@ -160,84 +190,6 @@ export const Projects: React.FC<ProjectsProps> = ({ className }) => {
     );
   }
 
-  const renderProjectCard = (project: Project) => (
-    <Paper key={project.id} p="md" withBorder>
-      <Stack gap="md">
-        <Group justify="space-between" wrap="nowrap">
-          <Text size="lg" fw={700}>{project.title}</Text>
-          <Group gap="sm">
-            <Badge size="lg" variant="light" color={
-              project.status === 'completed' ? 'green' :
-              project.status === 'in_progress' ? 'blue' : 'gray'
-            }>
-              {project.status.replace('_', ' ').charAt(0).toUpperCase() + project.status.slice(1).replace('_', ' ')}
-            </Badge>
-            <Badge size="lg" variant="light" color={
-              project.difficulty === 'beginner' ? 'green' :
-              project.difficulty === 'intermediate' ? 'blue' : 'purple'
-            }>
-              {project.difficulty.charAt(0).toUpperCase() + project.difficulty.slice(1)}
-            </Badge>
-          </Group>
-        </Group>
-
-        <Text>{project.description}</Text>
-        
-        <Group>
-          <Group gap="xs">
-            <IconClock size={20} />
-            <Text size="sm">{project.estimated_hours} hours</Text>
-          </Group>
-          <Group gap="xs">
-            <IconCode size={20} />
-            <Group gap={8}>
-              {project.tech_stack.map((tech: string, index: number) => (
-                <Badge key={index} size="sm" variant="dot">{tech}</Badge>
-              ))}
-            </Group>
-          </Group>
-        </Group>
-
-        <Box>
-          <Text fw={500} mb="xs">Learning Outcomes:</Text>
-          <Group gap={8}>
-            {project.learning_outcomes.map((outcome: string, index: number) => (
-              <Badge key={index} size="sm" variant="outline">{outcome}</Badge>
-            ))}
-          </Group>
-        </Box>
-
-        <Stack gap="xs">
-          <Group justify="space-between">
-            <Text size="sm" fw={500}>Progress: {project.progress}%</Text>
-            <Group gap="xs">
-              <Button 
-                variant="subtle" 
-                size="xs"
-                onClick={() => handleUpdateProgress(project, Math.max(0, project.progress - 10))}
-                disabled={project.progress === 0}
-              >
-                -10%
-              </Button>
-              <Button 
-                variant="subtle" 
-                size="xs"
-                onClick={() => handleUpdateProgress(project, Math.min(100, project.progress + 10))}
-                disabled={project.progress === 100}
-              >
-                +10%
-              </Button>
-            </Group>
-          </Group>
-          <Progress value={project.progress} color={
-            project.progress === 100 ? 'green' :
-            project.progress >= 50 ? 'blue' : 'gray'
-          } />
-        </Stack>
-      </Stack>
-    </Paper>
-  );
-
   return (
     <Stack className={className}>
       {error && <ErrorMessage message={error} onRetry={loadData} />}
@@ -259,12 +211,82 @@ export const Projects: React.FC<ProjectsProps> = ({ className }) => {
                 <form onSubmit={handleGenerateProjects}>
                   <Stack gap="md">
                     <TextInput
-                      label="Generate Custom Projects"
+                      label="Project Topic"
                       value={topic}
                       onChange={(e) => setTopic(e.currentTarget.value)}
                       placeholder="Enter a topic to generate project suggestions..."
                       disabled={isGenerating}
                     />
+
+                    <Select
+                      label="Preferred Difficulty"
+                      value={selectedDifficulty}
+                      onChange={setSelectedDifficulty}
+                      data={[
+                        { value: 'beginner', label: 'Beginner' },
+                        { value: 'intermediate', label: 'Intermediate' },
+                        { value: 'advanced', label: 'Advanced' }
+                      ]}
+                      placeholder="Choose preferred difficulty (optional)"
+                      clearable
+                    />
+
+                    <Box>
+                      <Text size="sm" fw={500} mb="xs">Preferred Technologies</Text>
+                      <Group gap="xs" mb="sm">
+                        {preferredTech.map((tech: string) => (
+                          <Badge
+                            key={tech}
+                            size="lg"
+                            variant="light"
+                            rightSection={
+                              <Button
+                                size="xs"
+                                variant="transparent"
+                                onClick={() => handleRemoveTech(tech)}
+                                p={0}
+                              >
+                                ×
+                              </Button>
+                            }
+                          >
+                            {tech}
+                          </Badge>
+                        ))}
+                      </Group>
+
+                      <Group gap="xs" mb="sm">
+                        {commonTechnologies
+                          .filter(tech => !preferredTech.includes(tech))
+                          .map((tech: string) => (
+                            <Button
+                              key={tech}
+                              size="xs"
+                              variant="light"
+                              onClick={() => handleAddTech(tech)}
+                            >
+                              {tech}
+                            </Button>
+                          ))}
+                      </Group>
+
+                      <Group gap="xs">
+                        <TextInput
+                          placeholder="Add custom technology..."
+                          value={customTech}
+                          onChange={(e) => setCustomTech(e.currentTarget.value)}
+                          style={{ flex: 1 }}
+                        />
+                        <Button
+                          variant="light"
+                          onClick={handleAddCustomTech}
+                          disabled={!customTech.trim()}
+                        >
+                          Add
+                        </Button>
+                      </Group>
+                    </Box>
+
                     <Button
                       type="submit"
                       loading={isGenerating}
@@ -307,56 +329,55 @@ export const Projects: React.FC<ProjectsProps> = ({ className }) => {
                 </Paper>
               ) : (
                 <Stack>
-                  {filteredSuggestions.map((suggestion) => (
+                  {filteredSuggestions.map((suggestion: ProjectSuggestion) => (
                     <Paper key={suggestion.id} p="md" withBorder>
                       <Stack gap="md">
-                        <Group justify="space-between" wrap="nowrap">
-                          <Text size="lg" fw={700}>{suggestion.title}</Text>
-                          <Badge size="lg" variant="light" color={
-                            suggestion.difficulty === 'beginner' ? 'green' :
-                            suggestion.difficulty === 'intermediate' ? 'blue' : 'purple'
-                          }>
-                            {suggestion.difficulty.charAt(0).toUpperCase() + suggestion.difficulty.slice(1)}
-                          </Badge>
-                        </Group>
-                        
-                        <Text>{suggestion.description}</Text>
-                        
-                        <Group>
-                          <Group gap="xs">
-                            <IconClock size={20} />
-                            <Text size="sm">{suggestion.estimated_hours} hours</Text>
-                          </Group>
-                          <Group gap="xs">
-                            <IconCode size={20} />
-                            <Group gap={8}>
-                              {suggestion.tech_stack.map((tech, index) => (
-                                <Badge key={index} size="sm" variant="dot">{tech}</Badge>
-                              ))}
+                        <Group justify="space-between" align="flex-start">
+                          <Stack gap="xs">
+                            <Text size="lg" fw={700}>{suggestion.title}</Text>
+                            <Group gap="xs">
+                              <Badge
+                                color={
+                                  suggestion.difficulty === 'beginner' ? 'green' :
+                                  suggestion.difficulty === 'intermediate' ? 'blue' : 'purple'
+                                }
+                              >
+                                {suggestion.difficulty}
+                              </Badge>
+                              <Group gap={4}>
+                                <IconClock size={16} />
+                                <Text size="sm">{suggestion.estimated_hours} hours</Text>
+                              </Group>
                             </Group>
-                          </Group>
-                        </Group>
-
-                        <Box>
-                          <Text fw={500} mb="xs">Learning Outcomes:</Text>
-                          <Group gap={8}>
-                            {suggestion.learning_outcomes.map((outcome, index) => (
-                              <Badge key={index} size="sm" variant="outline">{outcome}</Badge>
-                            ))}
-                          </Group>
-                        </Box>
-
-                        <Group justify="flex-end">
-                          <Button 
+                          </Stack>
+                          <Button
                             variant="light"
                             onClick={() => handleStartProject(suggestion)}
-                            disabled={userProjects.some(p => p.suggestion_id === suggestion.id)}
+                            disabled={!userId}
                           >
-                            {userProjects.some(p => p.suggestion_id === suggestion.id) 
-                              ? 'Already Started' 
-                              : 'Start Project'}
+                            Start Project
                           </Button>
                         </Group>
+
+                        <Text>{suggestion.description}</Text>
+
+                        <Stack gap="xs">
+                          <Text fw={500}>Technologies:</Text>
+                          <Group gap="xs">
+                            {suggestion.tech_stack.map((tech: string, index: number) => (
+                              <Badge key={index} variant="dot">{tech}</Badge>
+                            ))}
+                          </Group>
+                        </Stack>
+
+                        <Stack gap="xs">
+                          <Text fw={500}>Learning Outcomes:</Text>
+                          <ul style={{ margin: 0, paddingLeft: '1.5rem' }}>
+                            {suggestion.learning_outcomes.map((outcome: string, index: number) => (
+                              <li key={index}>{outcome}</li>
+                            ))}
+                          </ul>
+                        </Stack>
                       </Stack>
                     </Paper>
                   ))}
@@ -368,22 +389,135 @@ export const Projects: React.FC<ProjectsProps> = ({ className }) => {
 
         <Tabs.Panel value="my-projects">
           <Box pt="md">
-            <Text size="xl" fw={700} mb="md">My Projects</Text>
-            {userProjects.length === 0 ? (
-              <Paper p="xl" withBorder>
-                <Stack align="center" gap="md">
-                  <IconChecklist size={48} stroke={1.5} color="var(--mantine-color-blue-filled)" />
-                  <Text size="lg" fw={500} ta="center">No projects started</Text>
-                  <Text c="dimmed" ta="center">
-                    Start a project from the suggestions tab to begin your learning journey.
-                  </Text>
+            <Stack gap="md">
+              <Text size="xl" fw={700}>My Projects</Text>
+              
+              {!userId ? (
+                <Paper p="xl" withBorder>
+                  <Stack align="center" gap="md">
+                    <IconBrain size={48} stroke={1.5} color="var(--mantine-color-blue-filled)" />
+                    <Text size="lg" fw={500} ta="center">Sign in to start projects</Text>
+                    <Text c="dimmed" ta="center">
+                      Create an account or sign in to start tracking your projects.
+                    </Text>
+                  </Stack>
+                </Paper>
+              ) : userProjects.length === 0 ? (
+                <Paper p="xl" withBorder>
+                  <Stack align="center" gap="md">
+                    <IconBrain size={48} stroke={1.5} color="var(--mantine-color-blue-filled)" />
+                    <Text size="lg" fw={500} ta="center">No projects started</Text>
+                    <Text c="dimmed" ta="center">
+                      Browse project suggestions and start your first project!
+                    </Text>
+                  </Stack>
+                </Paper>
+              ) : (
+                <Stack>
+                  {userProjects.map((project: Project) => (
+                    <Paper key={project.id} p="md" withBorder>
+                      <Stack gap="md">
+                        <Group justify="space-between" align="flex-start">
+                          <Stack gap="xs">
+                            <Text size="lg" fw={700}>{project.title}</Text>
+                            <Group gap="xs">
+                              <Badge
+                                color={
+                                  project.difficulty === 'beginner' ? 'green' :
+                                  project.difficulty === 'intermediate' ? 'blue' : 'purple'
+                                }
+                              >
+                                {project.difficulty}
+                              </Badge>
+                              <Group gap={4}>
+                                <IconClock size={16} />
+                                <Text size="sm">{project.estimated_hours} hours</Text>
+                              </Group>
+                              <Badge
+                                color={
+                                  project.status === 'completed' ? 'green' :
+                                  project.status === 'in_progress' ? 'blue' : 'gray'
+                                }
+                              >
+                                {project.status.replace('_', ' ')}
+                              </Badge>
+                            </Group>
+                          </Stack>
+                        </Group>
+
+                        <Text>{project.description}</Text>
+
+                        <Stack gap="xs">
+                          <Text fw={500}>Technologies:</Text>
+                          <Group gap="xs">
+                            {project.tech_stack.map((tech: string, index: number) => (
+                              <Badge key={index} variant="dot">{tech}</Badge>
+                            ))}
+                          </Group>
+                        </Stack>
+
+                        <Stack gap="xs">
+                          <Text fw={500}>Learning Outcomes:</Text>
+                          <ul style={{ margin: 0, paddingLeft: '1.5rem' }}>
+                            {project.learning_outcomes.map((outcome: string, index: number) => (
+                              <li key={index}>{outcome}</li>
+                            ))}
+                          </ul>
+                        </Stack>
+
+                        <Stack gap="xs">
+                          <Group justify="space-between">
+                            <Text fw={500}>Progress:</Text>
+                            <Text size="sm">{project.progress}%</Text>
+                          </Group>
+                          <Progress
+                            value={project.progress}
+                            color={
+                              project.progress === 100 ? 'green' :
+                              project.progress > 0 ? 'blue' : 'gray'
+                            }
+                          />
+                          <Group justify="space-between">
+                            <Button
+                              variant="light"
+                              color="red"
+                              onClick={() => handleUpdateProgress(project, 0)}
+                              disabled={project.progress === 0}
+                            >
+                              Reset Progress
+                            </Button>
+                            <Group gap="xs">
+                              <Button
+                                variant="light"
+                                onClick={() => handleUpdateProgress(project, Math.max(0, project.progress - 10))}
+                                disabled={project.progress === 0}
+                              >
+                                -10%
+                              </Button>
+                              <Button
+                                variant="light"
+                                onClick={() => handleUpdateProgress(project, Math.min(100, project.progress + 10))}
+                                disabled={project.progress === 100}
+                              >
+                                +10%
+                              </Button>
+                              <Button
+                                variant="light"
+                                color="green"
+                                onClick={() => handleUpdateProgress(project, 100)}
+                                disabled={project.progress === 100}
+                              >
+                                Complete
+                              </Button>
+                            </Group>
+                          </Group>
+                        </Stack>
+                      </Stack>
+                    </Paper>
+                  ))}
                 </Stack>
-              </Paper>
-            ) : (
-              <Stack>
-                {userProjects.map(renderProjectCard)}
-              </Stack>
-            )}
+              )}
+            </Stack>
           </Box>
         </Tabs.Panel>
       </Tabs>

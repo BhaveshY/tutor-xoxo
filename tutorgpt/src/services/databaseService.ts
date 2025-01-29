@@ -246,36 +246,86 @@ export const databaseService = {
 
   // Project suggestion operations
   getProjectSuggestions: async () => {
-    const { data, error } = await supabase
-      .from('project_suggestions')
-      .select('*')
-      .order('created_at', { ascending: false });
+    console.log('getProjectSuggestions called');
+    try {
+      const { data, error } = await supabase
+        .from('project_suggestions')
+        .select('*')
+        .order('created_at', { ascending: false });
 
-    if (error) throw error;
-    return data as ProjectSuggestion[];
+      if (error) {
+        console.error('Error in getProjectSuggestions:', error);
+        throw error;
+      }
+
+      console.log('getProjectSuggestions result:', {
+        count: data?.length ?? 0,
+        timestamp: new Date().toISOString()
+      });
+      return data as ProjectSuggestion[];
+    } catch (error) {
+      console.error('Unexpected error in getProjectSuggestions:', error);
+      throw error;
+    }
   },
 
   // Project operations
   createProject: async (project: Omit<Project, 'id' | 'created_at' | 'updated_at'>) => {
-    const { data, error } = await supabase
-      .from('projects')
-      .insert([project])
-      .select()
-      .single();
+    console.log('createProject called:', {
+      userId: project.user_id,
+      title: project.title,
+      timestamp: new Date().toISOString()
+    });
+    try {
+      const { data, error } = await supabase
+        .from('projects')
+        .insert([project])
+        .select()
+        .single();
 
-    if (error) throw error;
-    return data as Project;
+      if (error) {
+        console.error('Error in createProject:', error);
+        throw error;
+      }
+
+      console.log('Project created successfully:', {
+        projectId: data.id,
+        timestamp: new Date().toISOString()
+      });
+      return data as Project;
+    } catch (error) {
+      console.error('Unexpected error in createProject:', error);
+      throw error;
+    }
   },
 
   getProjects: async (userId: string) => {
-    const { data, error } = await supabase
-      .from('projects')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false });
+    console.log('getProjects called:', {
+      userId,
+      timestamp: new Date().toISOString()
+    });
+    try {
+      const { data, error } = await supabase
+        .from('projects')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
 
-    if (error) throw error;
-    return data as Project[];
+      if (error) {
+        console.error('Error in getProjects:', error);
+        throw error;
+      }
+
+      console.log('getProjects result:', {
+        userId,
+        count: data?.length ?? 0,
+        timestamp: new Date().toISOString()
+      });
+      return data as Project[];
+    } catch (error) {
+      console.error('Unexpected error in getProjects:', error);
+      throw error;
+    }
   },
 
   updateProject: async (projectId: string, updates: Partial<Project>) => {
@@ -297,5 +347,21 @@ export const databaseService = {
       .eq('id', projectId);
 
     if (error) throw error;
-  }
+  },
+
+  createProjectSuggestion: async (suggestion: Omit<ProjectSuggestion, 'id' | 'created_at'>): Promise<ProjectSuggestion> => {
+    try {
+      const { data, error } = await supabase
+        .from('project_suggestions')
+        .insert([suggestion])
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Error creating project suggestion:', error);
+      throw error;
+    }
+  },
 }; 

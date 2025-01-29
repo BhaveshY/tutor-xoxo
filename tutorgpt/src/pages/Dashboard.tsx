@@ -1051,6 +1051,16 @@ const Dashboard = () => {
     </Stack>
   );
 
+  const renderProjectsMode = () => (
+    <Stack>
+      <Title order={2}>Projects</Title>
+      <Text color="dimmed" mb="xl">
+        Start and track your learning projects.
+      </Text>
+      <Projects />
+    </Stack>
+  );
+
   return (
     <Container size="xl" py="xl">
       <Stack gap="md">
@@ -1058,7 +1068,7 @@ const Dashboard = () => {
         {currentMode === 'roadmap' && renderRoadmapMode()}
         {currentMode === 'practice' && renderPracticeMode()}
         {currentMode === 'progress' && renderProgressMode()}
-        {currentMode === 'projects' && <Projects />}
+        {currentMode === 'projects' && renderProjectsMode()}
       </Stack>
     </Container>
   );

@@ -1,5 +1,5 @@
-import { createClient } from '@supabase/supabase-js';
-import { databaseService } from './databaseService.ts';
+import { supabase } from '../../tutorgpt/src/lib/supabaseClient.ts';
+import { databaseService, ProjectSuggestion } from './databaseService.ts';
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -44,23 +44,16 @@ interface PracticeResponse extends LLMResponse {
   content: PracticeQuestion[];
 }
 
-interface ProjectSuggestion {
-  title: string;
-  description: string;
-  difficulty: 'beginner' | 'intermediate' | 'advanced';
-  estimated_hours: number;
-  tech_stack: string[];
-  learning_outcomes: string[];
+interface ProjectGenerationParams {
+  topic: string;
+  preferredDifficulty?: 'beginner' | 'intermediate' | 'advanced';
+  preferredTech?: string[];
 }
 
-interface ProjectResponse extends LLMResponse {
-  content: ProjectSuggestion[];
+interface ProjectResponse {
+  content?: ProjectSuggestion[];
+  error?: string;
 }
-
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 export const llmService = {
   generateTutorResponse: async (prompt: string, chatHistory: ChatMessage[] = [], provider: LLMProvider = 'deepseek/deepseek-r1'): Promise<LLMResponse> => {
@@ -144,22 +137,32 @@ export const llmService = {
     }
   },
 
-  generateProjects: async (topic: string, provider: LLMProvider = 'deepseek/deepseek-r1'): Promise<ProjectResponse> => {
+  generateProjects: async (params: ProjectGenerationParams): Promise<ProjectResponse> => {
     try {
+      console.log('Generating projects with params:', params);
+      
       const { data, error } = await supabase.functions.invoke<ProjectResponse>('projects', {
-        body: { topic, model: provider },
+        body: params
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase function error:', error);
+        throw error;
+      }
       
-      if (!data || !data.content) {
-        throw new Error('No response data');
+      if (!data?.content) {
+        console.error('No data in response:', data);
+        throw new Error('No project suggestions returned');
       }
 
+      console.log('Successfully generated projects:', data.content);
       return data;
     } catch (error) {
       console.error('Error generating projects:', error);
-      return { error: error instanceof Error ? error.message : 'An unknown error occurred', content: [] };
+      return { 
+        error: error instanceof Error ? error.message : 'Failed to generate project suggestions',
+        content: [] 
+      };
     }
   }
 }; 

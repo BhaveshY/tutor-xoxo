@@ -2,7 +2,7 @@ import { OpenAI } from 'https://esm.sh/openai@4.28.0';
 
 export const createOpenAIClient = () => {
   const openai = new OpenAI({
-    apiKey: Deno.env.get('OPENAI_API_KEY'),
+    apiKey: Deno.env.get('OPENROUTER_API_KEY'),
     baseURL: 'https://api.openrouter.ai/api/v1',
     defaultHeaders: {
       'HTTP-Referer': 'https://tutorgpt.ai',
@@ -13,4 +13,4 @@ export const createOpenAIClient = () => {
   return openai;
 };
 
-export const MODEL = 'deepseek-coder-33b-instruct'; 
+export const MODEL = 'deepseek/deepseek-r1'; 

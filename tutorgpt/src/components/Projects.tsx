@@ -1,13 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { Box, Stack, Paper, Text, Badge, Group, Button, Select, Loader, Tabs, Progress } from '@mantine/core';
-import { IconBrain, IconClock, IconCode, IconBookmark, IconChecklist } from '@tabler/icons-react';
+import { Box, Stack, Paper, Text, Badge, Group, Button, Select, Loader, Tabs, Progress, TextInput, NumberInput } from '@mantine/core';
+import { IconBrain, IconClock, IconCode, IconBookmark, IconChecklist, IconPlus } from '@tabler/icons-react';
 import { useAuth } from '../hooks/useAuth.ts';
 import { databaseService, Project, ProjectSuggestion } from '../services/databaseService.ts';
 import { ErrorMessage } from './ErrorMessage.tsx';
 import { notifications } from '@mantine/notifications';
+import { llmService } from '../services/llmService.ts';
 
 interface ProjectsProps {
   className?: string;
+}
+
+interface GenerationParams {
+  topic: string;
+  difficulty: 'beginner' | 'intermediate' | 'advanced';
+  techStack: string;
 }
 
 export const Projects: React.FC<ProjectsProps> = ({ className }) => {
@@ -16,25 +23,58 @@ export const Projects: React.FC<ProjectsProps> = ({ className }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedDifficulty, setSelectedDifficulty] = useState<string | null>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [showGenerateForm, setShowGenerateForm] = useState(false);
+  const [generationParams, setGenerationParams] = useState<GenerationParams>({
+    topic: '',
+    difficulty: 'intermediate',
+    techStack: ''
+  });
   const { session } = useAuth();
   const userId = session?.user?.id;
 
+  console.log('Projects component state:', {
+    isLoading,
+    hasError: !!error,
+    errorMessage: error,
+    suggestionsCount: suggestions.length,
+    userProjectsCount: userProjects.length,
+    selectedDifficulty,
+    userId,
+    hasSession: !!session,
+    timestamp: new Date().toISOString()
+  });
+
   useEffect(() => {
+    console.log('Projects useEffect triggered:', {
+      userId,
+      timestamp: new Date().toISOString()
+    });
     loadData();
   }, [userId]);
 
   const loadData = async () => {
+    console.log('Projects loadData started:', {
+      userId,
+      timestamp: new Date().toISOString()
+    });
     setIsLoading(true);
     setError(null);
     try {
+      console.log('Fetching project data...');
       const [suggestionsData, projectsData] = await Promise.all([
         databaseService.getProjectSuggestions(),
         userId ? databaseService.getProjects(userId) : Promise.resolve([])
       ]);
+      console.log('Raw project data:', {
+        suggestionsData,
+        projectsData,
+        timestamp: new Date().toISOString()
+      });
       setSuggestions(suggestionsData);
       setUserProjects(projectsData);
     } catch (error) {
-      console.error('Error loading data:', error);
+      console.error('Error loading project data:', error);
       setError('Failed to load projects. Please try again.');
     } finally {
       setIsLoading(false);
@@ -98,11 +138,68 @@ export const Projects: React.FC<ProjectsProps> = ({ className }) => {
     }
   };
 
+  const handleGenerateProject = async () => {
+    if (!generationParams.topic.trim()) {
+      notifications.show({
+        title: 'Error',
+        message: 'Please enter a topic for the project',
+        color: 'red'
+      });
+      return;
+    }
+
+    setIsGenerating(true);
+    try {
+      const result = await llmService.generateProjects({
+        topic: generationParams.topic,
+        preferredDifficulty: generationParams.difficulty,
+        preferredTech: generationParams.techStack ? generationParams.techStack.split(',').map(tech => tech.trim()).filter(tech => tech.length > 0) : undefined,
+      });
+
+      if (result.error) {
+        throw new Error(result.error);
+      }
+
+      // Reload suggestions to get the newly generated ones
+      await loadData();
+      
+      setShowGenerateForm(false);
+      setGenerationParams({
+        topic: '',
+        difficulty: 'intermediate',
+        techStack: ''
+      });
+
+      notifications.show({
+        title: 'Success',
+        message: 'New project suggestion generated successfully',
+        color: 'green'
+      });
+    } catch (error) {
+      console.error('Error generating project:', error);
+      notifications.show({
+        title: 'Error',
+        message: error instanceof Error ? error.message : 'Failed to generate project suggestion',
+        color: 'red'
+      });
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   const filteredSuggestions = selectedDifficulty
     ? suggestions.filter(project => project.difficulty === selectedDifficulty)
     : suggestions;
 
+  console.log('Filtered suggestions:', {
+    originalCount: suggestions.length,
+    filteredCount: filteredSuggestions.length,
+    selectedDifficulty,
+    timestamp: new Date().toISOString()
+  });
+
   if (isLoading) {
+    console.log('Rendering loading state');
     return (
       <Box py="xl" ta="center">
         <Loader size="md" />
@@ -189,12 +286,23 @@ export const Projects: React.FC<ProjectsProps> = ({ className }) => {
     </Paper>
   );
 
+  // Add debug logging before return
+  console.log('Projects render output:', {
+    isShowingLoader: isLoading,
+    hasError: !!error,
+    hasSuggestions: filteredSuggestions.length > 0,
+    hasUserProjects: userProjects.length > 0,
+    suggestionsData: filteredSuggestions,
+    userProjectsData: userProjects,
+    timestamp: new Date().toISOString()
+  });
+
   return (
     <Stack className={className}>
       {error && <ErrorMessage message={error} onRetry={loadData} />}
       
       <Tabs defaultValue="suggestions">
-        <Tabs.List>
+        <Tabs.List mb="md">
           <Tabs.Tab value="suggestions" leftSection={<IconBookmark size={20} />}>
             Project Suggestions
           </Tabs.Tab>
@@ -204,38 +312,106 @@ export const Projects: React.FC<ProjectsProps> = ({ className }) => {
         </Tabs.List>
 
         <Tabs.Panel value="suggestions">
-          <Box pt="md">
+          <Box>
             <Group justify="space-between" align="center" mb="md">
               <Text size="xl" fw={700}>Project Suggestions</Text>
-              <Select
-                value={selectedDifficulty}
-                onChange={setSelectedDifficulty}
-                data={[
-                  { value: 'beginner', label: 'Beginner' },
-                  { value: 'intermediate', label: 'Intermediate' },
-                  { value: 'advanced', label: 'Advanced' }
-                ]}
-                placeholder="Filter by difficulty"
-                clearable
-                style={{ width: 200 }}
-              />
+              <Group>
+                <Select
+                  value={selectedDifficulty}
+                  onChange={setSelectedDifficulty}
+                  data={[
+                    { value: 'beginner', label: 'Beginner' },
+                    { value: 'intermediate', label: 'Intermediate' },
+                    { value: 'advanced', label: 'Advanced' }
+                  ]}
+                  placeholder="Filter by difficulty"
+                  clearable
+                  style={{ width: 200 }}
+                />
+                <Button
+                  variant="light"
+                  onClick={() => setShowGenerateForm(!showGenerateForm)}
+                  leftSection={<IconPlus size={20} />}
+                >
+                  Generate New Project
+                </Button>
+              </Group>
             </Group>
 
-            {filteredSuggestions.length === 0 ? (
-              <Paper p="xl" withBorder>
-                <Stack align="center" gap="md">
-                  <IconBrain size={48} stroke={1.5} color="var(--mantine-color-blue-filled)" />
-                  <Text size="lg" fw={500} ta="center">No projects available</Text>
-                  <Text c="dimmed" ta="center">
-                    {selectedDifficulty
-                      ? `No ${selectedDifficulty} projects found. Try a different difficulty level.`
-                      : 'No project suggestions available at the moment.'}
-                  </Text>
+            {showGenerateForm && (
+              <Paper p="md" withBorder mb="md">
+                <Stack gap="md">
+                  <Text fw={500}>Generate New Project Suggestion</Text>
+                  
+                  <TextInput
+                    label="Topic"
+                    placeholder="Enter the main topic or goal of the project"
+                    value={generationParams.topic}
+                    onChange={(e) => setGenerationParams(prev => ({
+                      ...prev,
+                      topic: e.currentTarget.value
+                    }))}
+                    required
+                  />
+                  
+                  <Select
+                    label="Difficulty"
+                    value={generationParams.difficulty}
+                    onChange={(value) => setGenerationParams(prev => ({
+                      ...prev,
+                      difficulty: value as 'beginner' | 'intermediate' | 'advanced' || 'intermediate'
+                    }))}
+                    data={[
+                      { value: 'beginner', label: 'Beginner' },
+                      { value: 'intermediate', label: 'Intermediate' },
+                      { value: 'advanced', label: 'Advanced' }
+                    ]}
+                  />
+                  
+                  <TextInput
+                    label="Tech Stack (comma-separated)"
+                    placeholder="React, Node.js, TypeScript"
+                    value={generationParams.techStack}
+                    onChange={(e) => setGenerationParams(prev => ({
+                      ...prev,
+                      techStack: e.currentTarget.value
+                    }))}
+                  />
+                  
+                  <Group justify="flex-end">
+                    <Button
+                      variant="light"
+                      color="gray"
+                      onClick={() => setShowGenerateForm(false)}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      onClick={handleGenerateProject}
+                      loading={isGenerating}
+                    >
+                      Generate Project
+                    </Button>
+                  </Group>
                 </Stack>
               </Paper>
-            ) : (
-              <Stack>
-                {filteredSuggestions.map((suggestion) => (
+            )}
+
+            <Stack gap="md">
+              {filteredSuggestions.length === 0 ? (
+                <Paper p="xl" withBorder>
+                  <Stack align="center" gap="md">
+                    <IconBrain size={48} stroke={1.5} color="var(--mantine-color-blue-filled)" />
+                    <Text size="lg" fw={500} ta="center">No projects available</Text>
+                    <Text c="dimmed" ta="center">
+                      {selectedDifficulty
+                        ? `No ${selectedDifficulty} projects found. Try a different difficulty level.`
+                        : 'No project suggestions available at the moment.'}
+                    </Text>
+                  </Stack>
+                </Paper>
+              ) : (
+                filteredSuggestions.map((suggestion) => (
                   <Paper key={suggestion.id} p="md" withBorder>
                     <Stack gap="md">
                       <Group justify="space-between" wrap="nowrap">
@@ -287,14 +463,14 @@ export const Projects: React.FC<ProjectsProps> = ({ className }) => {
                       </Group>
                     </Stack>
                   </Paper>
-                ))}
-              </Stack>
-            )}
+                ))
+              )}
+            </Stack>
           </Box>
         </Tabs.Panel>
 
         <Tabs.Panel value="my-projects">
-          <Box pt="md">
+          <Box>
             <Text size="xl" fw={700} mb="md">My Projects</Text>
             {userProjects.length === 0 ? (
               <Paper p="xl" withBorder>
@@ -307,7 +483,7 @@ export const Projects: React.FC<ProjectsProps> = ({ className }) => {
                 </Stack>
               </Paper>
             ) : (
-              <Stack>
+              <Stack gap="md">
                 {userProjects.map(renderProjectCard)}
               </Stack>
             )}
