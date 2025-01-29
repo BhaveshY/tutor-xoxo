@@ -1,16 +1,22 @@
 import { OpenAI } from 'https://esm.sh/openai@4.28.0';
 
 export const createOpenAIClient = () => {
+  const apiKey = Deno.env.get('OPENROUTER_API_KEY');
+  if (!apiKey) {
+    throw new Error('OPENROUTER_API_KEY is not set in environment variables');
+  }
+
   const openai = new OpenAI({
-    apiKey: Deno.env.get('OPENROUTER_API_KEY'),
-    baseURL: 'https://api.openrouter.ai/api/v1',
+    apiKey,
+    baseURL: 'https://openrouter.ai/api/v1',
     defaultHeaders: {
       'HTTP-Referer': 'https://tutorgpt.ai',
-      'X-Title': 'TutorGPT'
+      'X-Title': 'TutorGPT',
+      'Content-Type': 'application/json'
     }
   });
 
   return openai;
 };
 
-export const MODEL = 'deepseek/deepseek-r1'; 
+export const MODEL = 'deepseek/deepseek-r1';

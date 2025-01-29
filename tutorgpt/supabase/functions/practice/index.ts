@@ -4,6 +4,20 @@ import { createCorsResponse, handleOptionsRequest } from '../_shared/cors.ts';
 
 const openai = createOpenAIClient();
 
+interface PracticeQuestion {
+  id: string;
+  question: string;
+  options: {
+    A: string;
+    B: string;
+    C: string;
+    D: string;
+  };
+  correct: "A" | "B" | "C" | "D";
+  explanation: string;
+  difficulty: "easy" | "medium" | "hard";
+}
+
 const SYSTEM_PROMPT = `You are a multiple-choice question generator. Generate exactly 3 multiple choice questions about the given topic.
 
 IMPORTANT: Each question MUST have exactly 4 options (A, B, C, D) in the following format:
@@ -43,10 +57,35 @@ REQUIREMENTS:
 6. DO NOT use "Answer: " format
 7. DO NOT use free-form text answers`;
 
+function parseQuestion(text: string, difficulty: string): PracticeQuestion | null {
+  const lines = text.split('\n').filter(l => l.trim());
+  
+  if (lines.length < 7) return null;
+  
+  const question = lines[0].replace(/^Q\d+:\s*/, '').trim();
+  const options = {
+    A: lines[1].replace(/^A\)\s*/, '').trim(),
+    B: lines[2].replace(/^B\)\s*/, '').trim(),
+    C: lines[3].replace(/^C\)\s*/, '').trim(),
+    D: lines[4].replace(/^D\)\s*/, '').trim(),
+  };
+  
+  const correct = lines[5].replace(/^Correct:\s*/, '').trim() as "A" | "B" | "C" | "D";
+  const explanation = lines[6].replace(/^Explanation:\s*/, '').trim();
+  
+  return {
+    id: crypto.randomUUID(),
+    question,
+    options,
+    correct,
+    explanation,
+    difficulty: difficulty as "easy" | "medium" | "hard"
+  };
+}
+
 function validateQuestion(question: string): { valid: boolean; error?: string } {
   const lines = question.split('\n').filter(l => l.trim());
   
-  // If it starts with "Answer:", it's the wrong format
   if (lines.some(line => line.startsWith('Answer:'))) {
     return { valid: false, error: 'Question is using Answer format instead of multiple choice options' };
   }
@@ -97,7 +136,7 @@ serve(async (req) => {
   }
 
   try {
-    const { prompt } = await req.json();
+    const { prompt, difficulty = 'medium', model = MODEL } = await req.json();
 
     if (!prompt) {
       return createCorsResponse({ error: 'Prompt is required' }, 400);
@@ -106,10 +145,10 @@ serve(async (req) => {
     console.log('Generating questions for prompt:', prompt);
 
     const completion = await openai.chat.completions.create({
-      model: MODEL,
+      model,
       messages: [
         { role: 'system', content: SYSTEM_PROMPT },
-        { role: 'user', content: `Generate 3 multiple-choice questions about: ${prompt}. Remember to use A) B) C) D) format with exactly 4 options for each question. DO NOT use 'Answer:' format.` }
+        { role: 'user', content: `Generate 3 ${difficulty} difficulty multiple-choice questions about: ${prompt}. Remember to use A) B) C) D) format with exactly 4 options for each question. DO NOT use 'Answer:' format.` }
       ],
       temperature: 0.5,
       max_tokens: 2000,
@@ -144,7 +183,12 @@ serve(async (req) => {
       return createCorsResponse({ error: `Failed to generate valid questions: ${errors}` }, 500);
     }
 
-    return createCorsResponse({ content });
+    // Parse questions into the expected format
+    const parsedQuestions = questions
+      .map(q => parseQuestion(q, difficulty))
+      .filter((q): q is PracticeQuestion => q !== null);
+
+    return createCorsResponse({ content: parsedQuestions });
 
   } catch (error) {
     console.error('Error generating questions:', error);
