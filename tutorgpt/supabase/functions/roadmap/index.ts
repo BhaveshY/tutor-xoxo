@@ -6,7 +6,7 @@ const openai = createOpenAIClient();
 
 const SYSTEM_PROMPT = `You are a learning roadmap generator. Create a detailed, step-by-step learning roadmap based on the user's goals and requirements.
 
-Format the roadmap as a markdown list with main topics and subtopics. Each topic should have 2-4 subtopics.
+Format the roadmap as a markdown list with main topics and subtopics. Each topic should have 2-4 subtopics. Important: Do not include any numbering or section numbers for subtopics - present them as clean bullet points only.
 
 Example format:
 # Learning Roadmap: [Topic]
@@ -16,24 +16,20 @@ Example format:
 - Familiarity with Y
 
 ## 1. [Main Topic 1]
-- Subtopic 1.1: Brief description
-- Subtopic 1.2: Brief description
-- Subtopic 1.3: Brief description
+- Regression: Brief description
+- Classification: Brief description
+- Neural Networks: Brief description
 
 ## 2. [Main Topic 2]
-- Subtopic 2.1: Brief description
-- Subtopic 2.2: Brief description
+- Clean subtopic: Brief description
+- Another subtopic: Brief description
 
 [Continue with more topics as needed]
 
-## Resources
-- Recommended books
-- Online courses
-- Practice projects
-
-## Time Estimate
-- Estimated time to complete each section
-- Total time commitment needed`;
+Remember: 
+- Never include numbering (like 1.1, 1.2) for subtopics
+- Present subtopics as simple bullet points
+- Keep formatting clean and consistent`;
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {

@@ -35,16 +35,16 @@ export const parseRoadmapContent = (content: string): RoadmapTopic[] => {
         completed: false,
       };
     }
-    // Match subtopic (starts with - or * and may have a checkbox)
-    else if (trimmedLine.match(/^[-*]\s+(\[[ x]\]\s+)?/)) {
+    // Match actual learning tasks (starts with - or * but not subtopic headers)
+    else if (trimmedLine.match(/^[-*]\s+/) && !trimmedLine.includes('**Subtopic')) {
       if (!currentTopic) return;
       
-      // Remove checkbox and bullet point to get clean title
+      // Clean up the task title
       const title = trimmedLine
         .replace(/^[-*]\s+/, '') // Remove bullet point
-        .replace(/\[[ x]\]\s*/, ''); // Remove checkbox
+        .replace(/\[[ x]\]\s*/, ''); // Remove checkbox if present
       
-      // Check if the subtopic was marked as completed
+      // Check if the task was marked as completed
       const completed = trimmedLine.includes('[x]');
       
       currentTopic.subtopics.push({
@@ -59,7 +59,7 @@ export const parseRoadmapContent = (content: string): RoadmapTopic[] => {
     topics.push(currentTopic);
   }
 
-  // Update topic completion status based on subtopics
+  // Update topic completion status based on tasks
   topics.forEach(topic => {
     topic.completed = topic.subtopics.length > 0 && topic.subtopics.every(st => st.completed);
   });
