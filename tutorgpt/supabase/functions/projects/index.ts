@@ -106,13 +106,16 @@ Please ensure each project suggestion follows the required JSON format and inclu
           { role: 'system', content: SYSTEM_PROMPT },
           { role: 'user', content: userPrompt }
         ],
-        temperature: 0.7,
-        max_tokens: 2500,
+        temperature: 0.4,
+        max_tokens: 4000,
       });
 
       const content = completion.choices[0]?.message?.content;
       if (!content) {
-        throw new Error('No content in OpenRouter response');
+        console.error('Empty response from OpenRouter');
+        return createCorsResponse({ 
+          error: 'Unable to generate projects at the moment. Please try again.' 
+        }, 500);
       }
 
       console.log('Raw OpenRouter response:', content);
@@ -120,7 +123,10 @@ Please ensure each project suggestion follows the required JSON format and inclu
       // Try to extract JSON from the response
       const jsonMatch = content.match(/\[[\s\S]*\]/);
       if (!jsonMatch) {
-        throw new Error('No JSON array found in response');
+        console.error('Invalid JSON format in response:', content);
+        return createCorsResponse({ 
+          error: 'The generated response was not in the correct format. Please try again.' 
+        }, 500);
       }
 
       // Parse and validate suggestions
@@ -129,7 +135,10 @@ Please ensure each project suggestion follows the required JSON format and inclu
         suggestions = JSON.parse(jsonMatch[0]);
         
         if (!Array.isArray(suggestions) || suggestions.length !== 3) {
-          throw new Error('Invalid response format - expected array of 3 suggestions');
+          console.error('Invalid suggestions array:', suggestions);
+          return createCorsResponse({ 
+            error: 'Failed to generate the required number of projects. Please try again.' 
+          }, 500);
         }
 
         // Validate each suggestion

@@ -189,70 +189,91 @@ export const llmService = {
   },
 
   generateProjects: async (params: ProjectGenerationParams): Promise<ProjectResponse> => {
-    try {
-      console.log('Generating projects with params:', params);
-      
-      const { data, error } = await supabase.functions.invoke<ProjectResponse | ProjectSuggestion[]>('projects', {
-        body: {
-          ...params,
-          model: 'deepseek/deepseek-r1'
+    const maxRetries = 2;
+    let retryCount = 0;
+
+    while (retryCount <= maxRetries) {
+      try {
+        console.log(`Generating projects attempt ${retryCount + 1}/${maxRetries + 1} with params:`, params);
+        
+        const { data, error } = await supabase.functions.invoke<ProjectResponse | ProjectSuggestion[]>('projects', {
+          body: {
+            ...params,
+            model: 'deepseek/deepseek-r1'
+          }
+        });
+
+        if (error) {
+          console.error('Supabase function error:', error);
+          throw error;
         }
-      });
-
-      if (error) {
-        console.error('Supabase function error:', error);
-        throw error;
-      }
-      
-      if (!data) {
-        console.error('No data returned from projects function');
-        throw new Error('No data returned from projects function');
-      }
-
-      // Handle both direct array responses and wrapped responses
-      const suggestions = Array.isArray(data) ? data : data.content;
-      
-      if (!suggestions) {
-        console.error('No suggestions in response:', data);
-        throw new Error('No project suggestions returned');
-      }
-
-      if (!Array.isArray(suggestions)) {
-        console.error('Content is not an array:', suggestions);
-        throw new Error('Invalid response format: content is not an array');
-      }
-
-      if (suggestions.length === 0) {
-        console.error('Empty suggestions array');
-        throw new Error('No project suggestions returned');
-      }
-
-      // Validate each suggestion
-      suggestions.forEach((suggestion, index) => {
-        if (!suggestion.title?.trim()) throw new Error(`Missing title in suggestion ${index}`);
-        if (!suggestion.description?.trim()) throw new Error(`Missing description in suggestion ${index}`);
-        if (!['beginner', 'intermediate', 'advanced'].includes(suggestion.difficulty)) {
-          throw new Error(`Invalid difficulty in suggestion ${index}`);
+        
+        if (!data) {
+          console.error('No data returned from projects function');
+          throw new Error('No data returned from projects function');
         }
-        if (typeof suggestion.estimated_hours !== 'number' || suggestion.estimated_hours <= 0) {
-          throw new Error(`Invalid estimated hours in suggestion ${index}`);
-        }
-        if (!Array.isArray(suggestion.tech_stack) || suggestion.tech_stack.length === 0) {
-          throw new Error(`Invalid tech stack in suggestion ${index}`);
-        }
-        if (!Array.isArray(suggestion.learning_outcomes) || suggestion.learning_outcomes.length === 0) {
-          throw new Error(`Invalid learning outcomes in suggestion ${index}`);
-        }
-      });
 
-      console.log('Successfully generated projects:', suggestions);
-      return { content: suggestions };
-    } catch (error) {
-      console.error('Error generating projects:', error);
-      return { 
-        error: error instanceof Error ? error.message : 'Failed to generate project suggestions',
-        content: [] 
-      };
+        // Handle both direct array responses and wrapped responses
+        const suggestions = Array.isArray(data) ? data : data.content;
+        
+        if (!suggestions) {
+          console.error('No suggestions in response:', data);
+          throw new Error('No project suggestions returned');
+        }
+
+        if (!Array.isArray(suggestions)) {
+          console.error('Content is not an array:', suggestions);
+          throw new Error('Invalid response format: content is not an array');
+        }
+
+        if (suggestions.length === 0) {
+          console.error('Empty suggestions array');
+          throw new Error('No project suggestions returned');
+        }
+
+        // Validate each suggestion
+        suggestions.forEach((suggestion, index) => {
+          if (!suggestion.title?.trim()) throw new Error(`Missing title in suggestion ${index}`);
+          if (!suggestion.description?.trim()) throw new Error(`Missing description in suggestion ${index}`);
+          if (!['beginner', 'intermediate', 'advanced'].includes(suggestion.difficulty)) {
+            throw new Error(`Invalid difficulty in suggestion ${index}`);
+          }
+          if (typeof suggestion.estimated_hours !== 'number' || suggestion.estimated_hours <= 0) {
+            throw new Error(`Invalid estimated hours in suggestion ${index}`);
+          }
+          if (!Array.isArray(suggestion.tech_stack) || suggestion.tech_stack.length === 0) {
+            throw new Error(`Invalid tech stack in suggestion ${index}`);
+          }
+          if (!Array.isArray(suggestion.learning_outcomes) || suggestion.learning_outcomes.length === 0) {
+            throw new Error(`Invalid learning outcomes in suggestion ${index}`);
+          }
+        });
+
+        console.log('Successfully generated projects:', suggestions);
+        return { content: suggestions };
+      } catch (error) {
+        console.error(`Error generating projects (attempt ${retryCount + 1}/${maxRetries + 1}):`, error);
+        
+        // If this was our last retry, return the error
+        if (retryCount === maxRetries) {
+          return { 
+            error: error instanceof Error 
+              ? `Failed to generate project suggestions: ${error.message}` 
+              : 'Failed to generate project suggestions. Please try again.',
+            content: [] 
+          };
+        }
+        
+        // Wait before retrying (exponential backoff)
+        await new Promise(resolve => setTimeout(resolve, Math.pow(2, retryCount) * 1000));
+        retryCount++;
+      }
     }
+
+    // This should never be reached due to the return in the error case above
+    return { 
+      error: 'Unexpected error occurred while generating projects',
+      content: [] 
+    };
   }
 }; 
