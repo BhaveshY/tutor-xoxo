@@ -1,6 +1,13 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createOpenAIClient, MODEL } from '../_shared/openrouter.ts';
-import { createCorsResponse, handleOptionsRequest } from '../_shared/cors.ts';
+
+// CORS headers
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Max-Age': '86400',
+};
 
 const openai = createOpenAIClient();
 
@@ -32,15 +39,25 @@ Remember:
 - Keep formatting clean and consistent`;
 
 serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return handleOptionsRequest();
+    return new Response(null, {
+      headers: corsHeaders,
+      status: 204,
+    });
   }
 
   try {
     const { prompt } = await req.json();
 
     if (!prompt) {
-      return createCorsResponse({ error: 'Prompt is required' }, 400);
+      return new Response(
+        JSON.stringify({ error: 'Prompt is required' }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 400,
+        }
+      );
     }
 
     const completion = await openai.chat.completions.create({
@@ -53,11 +70,23 @@ serve(async (req) => {
       max_tokens: 2000,
     });
 
-    return createCorsResponse({ content: completion.choices[0]?.message?.content || '' });
+    return new Response(
+      JSON.stringify({ content: completion.choices[0]?.message?.content || '' }),
+      {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200,
+      }
+    );
 
   } catch (error: unknown) {
     console.error('Error:', error);
     const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
-    return createCorsResponse({ error: errorMessage }, 500);
+    return new Response(
+      JSON.stringify({ error: errorMessage }),
+      {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 500,
+      }
+    );
   }
 }); 

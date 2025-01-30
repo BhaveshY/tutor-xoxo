@@ -13,8 +13,23 @@ import {
   Tooltip,
   Box,
   Alert,
+  RingProgress,
+  Card,
+  Collapse,
+  ActionIcon,
+  Divider,
 } from '@mantine/core';
-import { IconBook, IconBrain, IconAlertCircle } from '@tabler/icons-react';
+import { 
+  IconBook, 
+  IconBrain, 
+  IconAlertCircle, 
+  IconChevronDown, 
+  IconChevronUp,
+  IconClockHour4,
+  IconTrendingUp,
+  IconBulb,
+  IconStars,
+} from '@tabler/icons-react';
 import { RoadmapTopic, RoadmapSubtopic, Roadmap } from '../types/roadmap.ts';
 import { evolutionaryLearning } from '../lib/evolutionaryLearning.ts';
 
@@ -152,6 +167,45 @@ const Progress = () => {
     }
   };
 
+  const renderMetricsCard = (topic: RoadmapTopic) => {
+    const completedCount = topic.subtopics.filter(st => st.completed).length;
+    const totalCount = topic.subtopics.length;
+    const progress = (completedCount / totalCount) * 100;
+
+    return (
+      <Card withBorder shadow="sm" p="md" radius="md">
+        <Group justify="space-between" mb="xs">
+          <Text fw={500} size="lg">{topic.title}</Text>
+          <Badge size="lg" variant="gradient" gradient={{ from: 'blue', to: 'cyan' }}>
+            {Math.round(progress)}% Complete
+          </Badge>
+        </Group>
+        <Group gap="xl" grow>
+          <RingProgress
+            size={90}
+            roundCaps
+            thickness={8}
+            sections={[{ value: progress, color: 'blue' }]}
+            label={
+              <Text size="xs" ta="center" fw={700}>
+                {completedCount}/{totalCount}
+              </Text>
+            }
+          />
+          <Stack gap={4}>
+            <Text size="sm" c="dimmed">Subtopics Progress</Text>
+            <MantineProgress
+              value={progress}
+              size="lg"
+              radius="xl"
+              color={progress === 100 ? 'green' : 'blue'}
+            />
+          </Stack>
+        </Group>
+      </Card>
+    );
+  };
+
   const renderLearningInsights = (topic: RoadmapTopic) => {
     const patterns = topic.subtopics.map(subtopic => {
       const recommendations = evolutionaryLearning.getRecommendations(subtopic.id);
@@ -161,60 +215,98 @@ const Progress = () => {
     if (patterns.length === 0) return null;
 
     return (
-      <Stack gap="xs" mt="sm">
-        <Text size="sm" fw={500} c="dimmed">Learning Insights:</Text>
-        {patterns.map(({ subtopic, recommendations }) => (
-          recommendations?.strategy && (
-            <Box key={subtopic.id}>
-              <Tooltip
-                label={
-                  <Box maw={300}>
-                    <Stack gap={5}>
-                      <Text size="sm">Recommended session: {Math.round(recommendations.strategy.recommendedTimePerSession / 60)} minutes</Text>
-                      <Text size="sm">Next review: {recommendations.strategy.nextReviewDate.toLocaleDateString()}</Text>
-                      <Text size="sm">Difficulty level: {recommendations.strategy.suggestedDifficulty}/5</Text>
-                      {recommendations.strategy.confidenceScore > 0.7 && (
-                        <Text size="sm" c="dimmed">Confidence: High</Text>
-                      )}
-                      {recommendations.insights.map((insight, index) => (
-                        <Text 
-                          key={index} 
-                          size="sm" 
-                          c={insight.type === 'success' ? 'green' : insight.type === 'warning' ? 'yellow' : 'blue'}
-                        >
-                          {insight.message}
-                        </Text>
-                      ))}
-                    </Stack>
-                  </Box>
-                }
-                multiline
-                position="right"
-              >
-                <Group gap="xs" style={{ cursor: 'help' }}>
-                  <ThemeIcon 
-                    size="sm" 
-                    variant="light" 
-                    color={getInsightColor(recommendations.insights)}
-                  >
-                    <IconBrain size={14} />
-                  </ThemeIcon>
-                  <Stack gap={2}>
-                    <Text size="sm" c="dimmed">
-                      {subtopic.title}
-                      {startTime[`${topic.id}-${subtopic.id}`] && ' (In Progress...)'}
-                    </Text>
-                    {recommendations.insights.length > 0 && (
-                      <Text size="xs" c="dimmed">
-                        {recommendations.insights[0].recommendation}
-                      </Text>
-                    )}
-                  </Stack>
+      <Stack gap="md" mt="md">
+        <Group justify="space-between">
+          <Group gap={8}>
+            <ThemeIcon size="md" variant="light" color="blue">
+              <IconBrain size={18} />
+            </ThemeIcon>
+            <Text fw={500}>Learning Insights</Text>
+          </Group>
+          <Badge variant="dot" color="blue">AI-Powered</Badge>
+        </Group>
+        
+        <Stack gap="sm">
+          {patterns.map(({ subtopic, recommendations }) => (
+            recommendations?.strategy && (
+              <Card key={subtopic.id} withBorder p="sm" radius="md">
+                <Group justify="space-between" mb="xs">
+                  <Group gap={8}>
+                    <ThemeIcon 
+                      size="sm" 
+                      variant="light" 
+                      color={getInsightColor(recommendations.insights)}
+                      radius="xl"
+                    >
+                      {getInsightIcon(recommendations.insights)}
+                    </ThemeIcon>
+                    <Text fw={500} size="sm">{subtopic.title}</Text>
+                  </Group>
+                  {startTime[`${topic.id}-${subtopic.id}`] && (
+                    <Badge color="yellow" variant="dot">In Progress</Badge>
+                  )}
                 </Group>
-              </Tooltip>
-            </Box>
-          )
-        ))}
+
+                <Group grow gap="xs">
+                  <Paper p="xs" radius="md" bg="gray.0">
+                    <Group gap={6} wrap="nowrap">
+                      <IconClockHour4 size={16} />
+                      <Text size="sm">
+                        {Math.round(recommendations.strategy.recommendedTimePerSession / 60)}min
+                      </Text>
+                    </Group>
+                  </Paper>
+                  <Paper p="xs" radius="md" bg="gray.0">
+                    <Group gap={6} wrap="nowrap">
+                      <IconTrendingUp size={16} />
+                      <Text size="sm">Level {recommendations.strategy.suggestedDifficulty}/5</Text>
+                    </Group>
+                  </Paper>
+                </Group>
+
+                <Collapse in={true}>
+                  <Stack gap="xs" mt="sm">
+                    {recommendations.insights.map((insight, index) => (
+                      <Alert
+                        key={index}
+                        variant="light"
+                        color={insight.type === 'success' ? 'green' : insight.type === 'warning' ? 'yellow' : 'blue'}
+                        title={insight.type === 'success' ? 'Great Progress!' : insight.type === 'warning' ? 'Suggestion' : 'Tip'}
+                        icon={getInsightTypeIcon(insight.type)}
+                      >
+                        <Text size="sm">{insight.message}</Text>
+                        {insight.recommendation && (
+                          <Text size="sm" mt={4} c="dimmed">
+                            Recommendation: {insight.recommendation}
+                          </Text>
+                        )}
+                      </Alert>
+                    ))}
+                    
+                    <Paper p="xs" withBorder radius="md">
+                      <Group justify="space-between" gap={8}>
+                        <Text size="sm" c="dimmed">Next Review</Text>
+                        <Text size="sm" fw={500}>
+                          {recommendations.strategy.nextReviewDate.toLocaleDateString()}
+                        </Text>
+                      </Group>
+                      {recommendations.strategy.confidenceScore > 0.7 && (
+                        <Badge 
+                          size="sm" 
+                          variant="dot" 
+                          color="green"
+                          mt={6}
+                        >
+                          High Confidence
+                        </Badge>
+                      )}
+                    </Paper>
+                  </Stack>
+                </Collapse>
+              </Card>
+            )
+          ))}
+        </Stack>
       </Stack>
     );
   };
@@ -226,99 +318,127 @@ const Progress = () => {
     return 'blue';
   };
 
+  // Helper function to get insight icon
+  const getInsightIcon = (insights: Array<{ type: 'success' | 'warning' | 'info' }>) => {
+    if (insights.some(i => i.type === 'success')) return <IconStars size={14} />;
+    if (insights.some(i => i.type === 'warning')) return <IconAlertCircle size={14} />;
+    return <IconBulb size={14} />;
+  };
+
+  // Helper function to get insight type icon
+  const getInsightTypeIcon = (type: 'success' | 'warning' | 'info') => {
+    switch (type) {
+      case 'success': return <IconStars size={16} />;
+      case 'warning': return <IconAlertCircle size={16} />;
+      case 'info': return <IconBulb size={16} />;
+    }
+  };
+
   return (
     <Stack>
-      <Title order={2}>Learning Progress</Title>
+      <Group justify="space-between" mb="md">
+        <Title order={2}>Learning Progress</Title>
+        <Badge 
+          size="lg" 
+          variant="gradient" 
+          gradient={{ from: 'indigo', to: 'cyan' }}
+        >
+          AI-Enhanced Learning
+        </Badge>
+      </Group>
       
       {error && (
-        <Alert icon={<IconAlertCircle size={16} />} title="Notice" color="yellow" variant="light" onClose={() => setError(null)}>
+        <Alert 
+          icon={<IconAlertCircle size={16} />} 
+          title="Notice" 
+          color="yellow" 
+          variant="light" 
+          onClose={() => setError(null)}
+        >
           {error}
         </Alert>
       )}
 
-      {roadmaps.map(roadmap => {
-        const progress = calculateProgress(roadmap.topics);
-        return (
-          <Paper key={roadmap.id} p="md" withBorder>
-            <Stack gap="md">
-              <Group justify="space-between">
-                <Group>
-                  <ThemeIcon size="lg" variant="light">
-                    <IconBook size={20} />
-                  </ThemeIcon>
-                  <div>
-                    <Text fw={500}>{roadmap.title}</Text>
-                    <Text size="sm" c="dimmed">
-                      {roadmap.topics.length} topics
-                    </Text>
-                  </div>
-                </Group>
-                <Badge size="lg">{progress}% Complete</Badge>
+      {roadmaps.map(roadmap => (
+        <Paper key={roadmap.id} p="md" radius="md" withBorder>
+          <Stack gap="md">
+            <Group justify="space-between">
+              <Group gap="md">
+                <ThemeIcon size="xl" variant="light" radius="md">
+                  <IconBook size={24} />
+                </ThemeIcon>
+                <div>
+                  <Text fw={700} size="lg">{roadmap.title}</Text>
+                  <Text size="sm" c="dimmed">
+                    {roadmap.topics.length} Learning Paths
+                  </Text>
+                </div>
               </Group>
+              <Badge 
+                size="xl" 
+                variant="gradient" 
+                gradient={{ from: 'blue', to: 'cyan' }}
+              >
+                {calculateProgress(roadmap.topics)}% Complete
+              </Badge>
+            </Group>
 
-              <MantineProgress
-                value={progress}
-                size="lg"
-                radius="xl"
-                color={progress === 100 ? 'green' : 'blue'}
-              />
+            <Divider />
 
-              <Stack gap="xs">
-                {roadmap.topics.map(topic => (
-                  <Paper 
-                    key={topic.id} 
-                    p="xs" 
-                    withBorder
+            <Stack gap="md">
+              {roadmap.topics.map(topic => (
+                <div key={topic.id}>
+                  {renderMetricsCard(topic)}
+                  {expandedTopics[`${roadmap.id}-${topic.id}`] && (
+                    <>
+                      <Paper p="md" radius="md" withBorder>
+                        <Stack gap="sm">
+                          {topic.subtopics.map(subtopic => (
+                            <Group key={subtopic.id} justify="space-between">
+                              <Checkbox
+                                size="md"
+                                checked={subtopic.completed}
+                                onChange={(e) => {
+                                  e.stopPropagation();
+                                  handleSubtopicChange(roadmap.id, topic.id, subtopic.id, e.currentTarget.checked);
+                                }}
+                                label={
+                                  <Text size="sm" fw={500}>
+                                    {subtopic.title}
+                                    {startTime[`${topic.id}-${subtopic.id}`] && (
+                                      <Text span c="yellow" ml={6}>(In Progress...)</Text>
+                                    )}
+                                  </Text>
+                                }
+                              />
+                              {subtopic.completed && (
+                                <Badge color="green" variant="light">Completed</Badge>
+                              )}
+                            </Group>
+                          ))}
+                        </Stack>
+                      </Paper>
+                      {renderLearningInsights(topic)}
+                    </>
+                  )}
+                  <ActionIcon
+                    variant="subtle"
                     onClick={() => toggleTopic(roadmap.id, topic.id)}
-                    style={{ cursor: 'pointer' }}
+                    mx="auto"
+                    mt={8}
                   >
-                    <Stack gap="xs">
-                      <Group>
-                        <Checkbox
-                          checked={topic.completed}
-                          onChange={(e) => {
-                            e.stopPropagation();
-                            topic.subtopics.forEach(subtopic => {
-                              handleSubtopicChange(roadmap.id, topic.id, subtopic.id, e.currentTarget.checked);
-                            });
-                          }}
-                          label={topic.title}
-                          onClick={(e) => e.stopPropagation()}
-                        />
-                        <Badge size="sm">
-                          {topic.subtopics.filter(st => st.completed).length}/{topic.subtopics.length}
-                        </Badge>
-                      </Group>
-
-                      {expandedTopics[`${roadmap.id}-${topic.id}`] && (
-                        <>
-                          <Stack gap="xs" ml="xl">
-                            {topic.subtopics.map(subtopic => (
-                              <Group key={subtopic.id}>
-                                <Checkbox
-                                  size="sm"
-                                  checked={subtopic.completed}
-                                  onChange={(e) => {
-                                    e.stopPropagation();
-                                    handleSubtopicChange(roadmap.id, topic.id, subtopic.id, e.currentTarget.checked);
-                                  }}
-                                  label={subtopic.title}
-                                  onClick={(e) => e.stopPropagation()}
-                                />
-                              </Group>
-                            ))}
-                          </Stack>
-                          {renderLearningInsights(topic)}
-                        </>
-                      )}
-                    </Stack>
-                  </Paper>
-                ))}
-              </Stack>
+                    {expandedTopics[`${roadmap.id}-${topic.id}`] ? (
+                      <IconChevronUp size={24} />
+                    ) : (
+                      <IconChevronDown size={24} />
+                    )}
+                  </ActionIcon>
+                </div>
+              ))}
             </Stack>
-          </Paper>
-        );
-      })}
+          </Stack>
+        </Paper>
+      ))}
     </Stack>
   );
 };
