@@ -32,6 +32,7 @@ import {
 } from '@tabler/icons-react';
 import { RoadmapTopic, RoadmapSubtopic, Roadmap } from '../types/roadmap.ts';
 import { evolutionaryLearning } from '../lib/evolutionaryLearning.ts';
+import { EvolutionVisualizer } from '../components/EvolutionVisualizer.tsx';
 
 export const parseRoadmapContent = (content: string): RoadmapTopic[] => {
   const lines = content.split('\n');
@@ -216,6 +217,13 @@ const Progress = () => {
 
     return (
       <Stack gap="md" mt="md">
+        <EvolutionVisualizer 
+          topicId={topic.id}
+          onInsightClick={(insight) => {
+            // Handle insight click if needed
+          }}
+        />
+        
         <Group justify="space-between">
           <Group gap={8}>
             <ThemeIcon size="md" variant="light" color="blue">
