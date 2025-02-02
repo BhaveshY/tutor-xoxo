@@ -45,13 +45,13 @@ serve(async (req) => {
         messages: [
           {
             role: 'system',
-            content: 'You are a knowledgeable and patient tutor. Explain concepts clearly and provide examples when helpful. If you are unsure about something, admit it and suggest reliable sources for further learning.'
+            content: 'You are a knowledgeable and patient tutor with perfect memory of the conversation context. You should maintain context of the conversation and refer back to previous interactions when relevant. When the user mentions something previously discussed, acknowledge it. If the user shares personal information (like their name), remember and use it appropriately. Explain concepts clearly and provide examples when helpful. If you are unsure about something, admit it and suggest reliable sources for further learning.'
           },
           ...chatHistory,
           { role: 'user', content: prompt }
         ],
         temperature: 0.7,
-        max_tokens: 2000,
+        max_tokens: 4000,
       });
 
       if (!completion.choices?.[0]?.message?.content) {

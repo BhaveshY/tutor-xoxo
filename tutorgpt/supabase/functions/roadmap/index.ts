@@ -36,7 +36,8 @@ Example format:
 Remember: 
 - Never include numbering (like 1.1, 1.2) for subtopics
 - Present subtopics as simple bullet points
-- Keep formatting clean and consistent`;
+- Keep formatting clean and consistent
+- Include Resources (links for each topic)`;
 
 serve(async (req) => {
   // Handle CORS preflight requests
